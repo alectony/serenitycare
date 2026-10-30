@@ -25,20 +25,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $profileResponse = sb_request('GET', 'profiles', 'id=eq.' . $userId, null, $token);
             
-            // Check if profile fetch was successful (sb_request returns array directly on 200)
+            // Default role to patient if profile table doesn't have a record yet
+            $role = 'patient';
             if (!isset($profileResponse['http_code']) || $profileResponse['http_code'] === 200) {
-                // If profiles returns a direct array or wrapped data
                 $profileData = isset($profileResponse[0]) ? $profileResponse[0] : ($profileResponse['data'][0] ?? null);
-                $role = $profileData['role'] ?? 'patient';
-
-                if ($role === 'admin') {
-                    header('Location: /admin/');
-                } elseif ($role === 'counselor') {
-                    header('Location: /counselor/');
-                } else {
-                    header('Location: /patient/');
+                if (isset($profileData['role'])) {
+                    $role = $profileData['role'];
                 }
-                exit;
+            }
+
+            if ($role === 'admin') {
+                header('Location: /admin/');
+            } elseif ($role === 'counselor') {
+                header('Location: /counselor/');
+            } else {
+                header('Location: /patient/');
+            }
+            exit;
             } else {
                 $error = 'Could not fetch user profile details.';
             }
