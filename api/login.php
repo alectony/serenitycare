@@ -11,14 +11,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Authenticate via Supabase Auth REST API
         $authResult = sb_login($email, $password);
 
-        // --- TEMPORARY DEBUG OUTPUT ---
-        echo "<h3>Supabase Response Debug:</h3>";
-        echo "<pre>";
-        print_r($authResult);
-        echo "</pre>";
-        exit;
-        // ------------------------------
-
         if (isset($authResult['access_token'])) {
             $token = $authResult['access_token'];
             $userId = $authResult['user']['id'];
@@ -33,8 +25,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $profileResponse = sb_request('GET', 'profiles', 'id=eq.' . $userId, null, $token);
             
-            if ($profileResponse['status'] === 200 && !empty($profileResponse['data'])) {
-                $role = $profileResponse['data'][0]['role'] ?? 'patient';
+            // Check if profile fetch was successful (sb_request returns array directly on 200)
+            if (!isset($profileResponse['http_code']) || $profileResponse['http_code'] === 200) {
+                // If profiles returns a direct array or wrapped data
+                $profileData = isset($profileResponse[0]) ? $profileResponse[0] : ($profileResponse['data'][0] ?? null);
+                $role = $profileData['role'] ?? 'patient';
 
                 if ($role === 'admin') {
                     header('Location: /admin/');
