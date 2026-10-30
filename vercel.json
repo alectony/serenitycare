@@ -14,5 +14,8 @@
     { "src": "^/counselor/(.*)$", "dest": "/api/counselor/$1" },
     { "src": "^/admin/(.*)$", "dest": "/api/admin/$1" },
     { "src": "^/(.*)$", "dest": "/api/index.php" }
+    { "src": "^/register\\.php$", "dest": "/api/register.php" } 
+
+
   ]
 }
