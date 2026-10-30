@@ -27,10 +27,20 @@ function get_supabase_config() {
     ];
 }
 
-
 function sb_login($email, $password) {
     $config = get_supabase_config();
-    $endpoint = $config['url'] . '/auth/v1/token?grant_type=password';
+    $url = $config['url'];
+    $anon_key = $config['anon_key'];
+
+    if (empty($url) || empty($anon_key)) {
+        return [
+            'error' => 'Configuration missing',
+            'url_is_empty' => empty($url),
+            'key_is_empty' => empty($anon_key)
+        ];
+    }
+
+    $endpoint = $url . '/auth/v1/token?grant_type=password';
 
     $payload = json_encode([
         'email' => $email,
@@ -43,20 +53,27 @@ function sb_login($email, $password) {
     curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         'Content-Type: application/json',
-        'apikey: ' . $config['anon_key']
+        'apikey: ' . $anon_key
     ]);
 
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
     curl_close($ch);
 
     if ($httpCode === 200) {
-        return json_decode($response, true); // Returns access_token, user object, etc.
+        return json_decode($response, true);
     }
     
-    return ['error' => json_decode($response, true) ?: 'Authentication failed'];
+    // Detailed debug info for login failures
+    return [
+        'error' => 'Authentication failed',
+        'http_code' => $httpCode,
+        'curl_error' => $curlError,
+        'endpoint_called' => $endpoint,
+        'response_body' => json_decode($response, true) ?: $response
+    ];
 }
-
 
 function sb_register($email, $password, $fullName = '') {
     $config = get_supabase_config();
@@ -123,7 +140,7 @@ function sb_request($method, $table, $query = '', $body = null, $userToken = nul
 
     curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
 
-   $response = curl_exec($ch);
+    $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
 
@@ -131,7 +148,6 @@ function sb_request($method, $table, $query = '', $body = null, $userToken = nul
         return json_decode($response, true);
     }
     
-    // Return detailed debug info instead of generic string
     return [
         'http_code' => $httpCode,
         'raw_response' => json_decode($response, true),
