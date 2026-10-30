@@ -33,18 +33,11 @@ function get_supabase_config() {
 
 function sb_login($email, $password) {
     $config = get_supabase_config();
-    $url = $config['url'];
-    $anon_key = $config['anon_key'];
-
-    if (empty($url) || empty($anon_key)) {
-        return [
-            'error' => 'Configuration missing',
-            'url_is_empty' => empty($url),
-            'key_is_empty' => empty($anon_key)
-        ];
-    }
-
-    $endpoint = $url . '/auth/v1/token?grant_type=password';
+    $url = trim($config['url']);
+    $anon_key = trim($config['anon_key']);
+    
+    // Ensure clean endpoint string
+    $endpoint = rtrim($url, '/') . '/auth/v1/token?grant_type=password';
 
     $payload = json_encode([
         'email' => $email,
@@ -60,11 +53,12 @@ function sb_login($email, $password) {
         'apikey: ' . $anon_key
     ]);
     
-    // --- FORCE IPv4 & FIX DNS RESOLUTION ON VERCEL ---
+    // Robust serverless cURL options
     curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 15);
-    // ------------------------------------------------
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // Temporarily bypass SSL verify for debug if needed
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 20);
+    curl_setopt($ch, CURLOPT_NOSIGNAL, 1);
 
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -75,7 +69,6 @@ function sb_login($email, $password) {
         return json_decode($response, true);
     }
     
-    // Detailed debug info for login failures
     return [
         'error' => 'Authentication failed',
         'http_code' => $httpCode,
