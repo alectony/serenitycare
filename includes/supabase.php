@@ -59,6 +59,12 @@ function sb_login($email, $password) {
         'Content-Type: application/json',
         'apikey: ' . $anon_key
     ]);
+    
+    // --- FORCE IPv4 & FIX DNS RESOLUTION ON VERCEL ---
+    curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+    // ------------------------------------------------
 
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
