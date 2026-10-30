@@ -123,12 +123,18 @@ function sb_request($method, $table, $query = '', $body = null, $userToken = nul
 
     curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
 
-    $response = curl_exec($ch);
+   $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
 
+    if ($httpCode === 200) {
+        return json_decode($response, true);
+    }
+    
+    // Return detailed debug info instead of generic string
     return [
-        'status' => $httpCode,
-        'data' => json_decode($response, true)
+        'http_code' => $httpCode,
+        'raw_response' => json_decode($response, true),
+        'response_string' => $response
     ];
 }
