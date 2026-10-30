@@ -11,26 +11,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Authenticate via Supabase Auth REST API
         $authResult = sb_login($email, $password);
 
+        // --- TEMPORARY DEBUG OUTPUT ---
+        echo "<h3>Supabase Response Debug:</h3>";
+        echo "<pre>";
+        print_r($authResult);
+        echo "</pre>";
+        exit;
+        // ------------------------------
+
         if (isset($authResult['access_token'])) {
             $token = $authResult['access_token'];
             $userId = $authResult['user']['id'];
 
-            // Save token securely in an HttpOnly cookie (lasts 1 day)
             setcookie('supabase_token', $token, [
                 'expires' => time() + 86400,
                 'path' => '/',
-                'secure' => isset($_SERVER['HTTPS']), // Secure on HTTPS (Vercel)
+                'secure' => isset($_SERVER['HTTPS']),
                 'httponly' => true,
                 'samesite' => 'Lax'
             ]);
 
-            // Fetch user profile to check their role
             $profileResponse = sb_request('GET', 'profiles', 'id=eq.' . $userId, null, $token);
             
             if ($profileResponse['status'] === 200 && !empty($profileResponse['data'])) {
                 $role = $profileResponse['data'][0]['role'] ?? 'patient';
 
-                // Redirect based on role
                 if ($role === 'admin') {
                     header('Location: /admin/');
                 } elseif ($role === 'counselor') {
