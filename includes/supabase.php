@@ -69,11 +69,13 @@ function sb_login($email, $password) {
         return json_decode($response, true);
     }
     
+// Detailed debug info for login failures
     return [
         'error' => 'Authentication failed',
         'http_code' => $httpCode,
         'curl_error' => $curlError,
         'endpoint_called' => $endpoint,
+        'config_checked' => $config, // <-- Let's see what config it grabbed
         'response_body' => json_decode($response, true) ?: $response
     ];
 }
