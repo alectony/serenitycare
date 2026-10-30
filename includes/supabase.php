@@ -21,8 +21,9 @@ function load_env($path) {
 load_env(__DIR__ . '/../.env');
 
 function get_supabase_config() {
-    $url = getenv('SUPABASE_URL') ?: ($_ENV['SUPABASE_URL'] ?? ($_SERVER['SUPABASE_URL'] ?? ''));
-    $anon_key = getenv('SUPABASE_ANON_KEY') ?: ($_ENV['SUPABASE_ANON_KEY'] ?? ($_SERVER['SUPABASE_ANON_KEY'] ?? ''));
+    // Fallback directly to your project credentials so Vercel can't miss them
+    $url = getenv('SUPABASE_URL') ?: ($_ENV['SUPABASE_URL'] ?? ($_SERVER['SUPABASE_URL'] ?? 'https://cjjipdjfhtoairxwydg.supabase.co'));
+    $anon_key = getenv('SUPABASE_ANON_KEY') ?: ($_ENV['SUPABASE_ANON_KEY'] ?? ($_SERVER['SUPABASE_ANON_KEY'] ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNqamlwZGpmaHRvYWlyeHJ3eWRnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMzMjUxNDAsImV4cCI6MjEwODkwMTE0MH0.VV5VWR0_oOu_u2ixB7YG08eRtgr-AKYeACeKnQFpCaM'));
 
     return [
         'url' => is_string($url) ? trim($url) : '',
