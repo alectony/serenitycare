@@ -42,9 +42,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 header('Location: /patient/');
             }
             exit;
-            } else {
-                $error = 'Could not fetch user profile details.';
-            }
         } else {
             $error = 'Invalid email or password.';
         }
