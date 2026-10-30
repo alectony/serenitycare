@@ -21,9 +21,12 @@ function load_env($path) {
 load_env(__DIR__ . '/../.env');
 
 function get_supabase_config() {
+    $url = getenv('SUPABASE_URL') ?: ($_ENV['SUPABASE_URL'] ?? $_SERVER['SUPABASE_URL'] ?? null);
+    $anon_key = getenv('SUPABASE_ANON_KEY') ?: ($_ENV['SUPABASE_ANON_KEY'] ?? $_SERVER['SUPABASE_ANON_KEY'] ?? null);
+
     return [
-        'url' => getenv('SUPABASE_URL'),
-        'anon_key' => getenv('SUPABASE_ANON_KEY')
+        'url' => trim($url),
+        'anon_key' => trim($anon_key)
     ];
 }
 
