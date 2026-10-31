@@ -3,6 +3,19 @@
 $path = trim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/');
 $root = dirname(__DIR__);
 
+// Static assets: serve /css/* and /js/* from /public (works whether or not Vercel serves /public itself)
+if (preg_match('#^(css|js)/([A-Za-z0-9._-]+\.(css|js))$#', $path, $m)) {
+    $file = $root . '/public/' . $m[1] . '/' . $m[2];
+    if (is_file($file)) {
+        header('Content-Type: ' . ($m[3] === 'css' ? 'text/css' : 'application/javascript') . '; charset=utf-8');
+        header('Cache-Control: public, max-age=300');
+        readfile($file);
+        exit;
+    }
+    http_response_code(404);
+    exit;
+}
+
 // Home page -> login
 if ($path === '') {
     require __DIR__ . '/login.php';
