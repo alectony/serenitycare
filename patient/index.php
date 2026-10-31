@@ -1,5 +1,8 @@
 <?php
+// before (when inside api/counselor/)
 require_once __DIR__ . '/../../includes/auth.php';
+// after (when inside counselor/)
+require_once __DIR__ . '/../includes/auth.php';
 
 // Protect page: ensures user is logged in
 $token = require_login();

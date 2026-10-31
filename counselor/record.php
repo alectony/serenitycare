@@ -1,6 +1,6 @@
 <?php
-require_once __DIR__ . '/../../includes/auth.php';
-require_once __DIR__ . '/../../includes/supabase.php';
+
+require_once __DIR__ . '/../includes/auth.php';
 
 $currentUser = require_role('counselor');
 $db = db();

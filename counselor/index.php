@@ -1,6 +1,6 @@
 <?php
-require_once __DIR__ . '/../../includes/auth.php';
 
+require_once __DIR__ . '/../includes/auth.php';
 // Protect page: ensures user is logged in
 $token = require_login();
 ?>
