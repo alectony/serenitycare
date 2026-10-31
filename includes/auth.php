@@ -29,11 +29,20 @@ function require_login() {
 }
 
 function get_user_profile($user_id, $token) {
-    $r = sb_request('GET', 'profiles', 'id=eq.' . urlencode($user_id), null, $token);
-    if ($r['status'] === 200 && !empty($r['data'][0])) {
-        return $r['data'][0];
+    $response = sb_request('GET', 'profiles', 'id=eq.' . $user_id, null, $token);
+    if (!empty($response['data'])) {
+        return $response['data'][0];
     }
-    return null;
+    
+    // Fallback auto-create profile if missing
+    $defaultProfile = [
+        'id' => $user_id,
+        'full_name' => 'User',
+        'role' => 'patient',
+        'is_active' => true
+    ];
+    sb_request('POST', 'profiles', '', $defaultProfile, $token);
+    return $defaultProfile;
 }
 
 function home_for_role($role) {

@@ -14,14 +14,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (strlen($password) < 8) {
         $error = 'Password must be at least 8 characters.';
     } else {
-        $result = sb_register($email, $password, $fullName);
+    $result = sb_register($email, $password, $fullName);
 
         if (isset($result['error'])) {
             $error = $result['error'];
         } else {
+            // If Supabase returns user data upon registration, insert into profiles table
+            $userId = $result['user']['id'] ?? null;
+            if ($userId) {
+                // Insert profile row using service role or user token if available
+                sb_request('POST', 'profiles', '', [
+                    'id' => $userId,
+                    'full_name' => $fullName,
+                    'email' => $email,
+                    'role' => 'patient',
+                    'is_active' => true
+                ]);
+            }
             $success = 'Registration successful! You can now log in.';
         }
-    }
+    }   
 }
 ?>
 <!DOCTYPE html>
