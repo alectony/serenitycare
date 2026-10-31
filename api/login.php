@@ -11,14 +11,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Authenticate via Supabase Auth REST API
         $authResult = sb_login($email, $password);
 
-        // --- TEMPORARY DEBUG OUTPUT ---
-        echo "<h3>Supabase Response Debug:</h3>";
-        echo "<pre>";
-        print_r($authResult);
-        echo "</pre>";
-        exit;
-        // ------------------------------
-
         if (isset($authResult['access_token'])) {
             $token = $authResult['access_token'];
             $userId = $authResult['user']['id'];
@@ -33,20 +25,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $profileResponse = sb_request('GET', 'profiles', 'id=eq.' . $userId, null, $token);
             
-            if ($profileResponse['status'] === 200 && !empty($profileResponse['data'])) {
-                $role = $profileResponse['data'][0]['role'] ?? 'patient';
-
-                if ($role === 'admin') {
-                    header('Location: /admin/');
-                } elseif ($role === 'counselor') {
-                    header('Location: /counselor/');
-                } else {
-                    header('Location: /patient/');
+            // Default role to patient if profile table doesn't have a record yet
+            $role = 'patient';
+            if (!isset($profileResponse['http_code']) || $profileResponse['http_code'] === 200) {
+                $profileData = isset($profileResponse[0]) ? $profileResponse[0] : ($profileResponse['data'][0] ?? null);
+                if (isset($profileData['role'])) {
+                    $role = $profileData['role'];
                 }
-                exit;
-            } else {
-                $error = 'Could not fetch user profile details.';
             }
+
+            if ($role === 'admin') {
+                header('Location: /admin/');
+            } elseif ($role === 'counselor') {
+                header('Location: /counselor/');
+            } else {
+                header('Location: /patient/');
+            }
+            exit;
         } else {
             $error = 'Invalid email or password.';
         }
@@ -80,7 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <input type="password" name="password" required>
             </div>
             <button type="submit" class="btn-primary">Sign In</button>
-            
+            <button type="button" class="btn-secondary" name="btn-logout" onclick="window.location.href='register.php'">Register</button>
         </form>
     </div>
 </body>
