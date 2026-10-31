@@ -122,9 +122,10 @@ function sb_request($method, $table, $query = '', $body = null, $userToken = nul
  */
 function sb_service_upsert_profile($userId, array $fields) {
     $config = get_supabase_config();
-    $key = $config['anon_key'];
+    // Retrieve service role key from env or config
+    $serviceKey = getenv('SUPABASE_SERVICE_ROLE_KEY') ?: ($_ENV['SUPABASE_SERVICE_ROLE_KEY'] ?? '');
 
-    if (empty($key)) {
+    if (empty($serviceKey)) {
         return false;
     }
 
@@ -132,12 +133,29 @@ function sb_service_upsert_profile($userId, array $fields) {
         return false;
     }
 
-    $endpoint = $config['url'] . '/rest/v1/profiles?on_conflict=id';
+    $url = $config['url'] . '/rest/v1/profiles?on_conflict=id';
     
-    // Use your existing sb_request or sb_http helper
-    $r = sb_request('POST', 'profiles', 'on_conflict=id', array_merge(['id' => $userId], $fields), $key);
+    $headers = [
+        'apikey: ' . $serviceKey,
+        'Authorization: Bearer ' . $serviceKey,
+        'Content-Type: application/json',
+        'Prefer: resolution=merge-duplicates,return=representation'
+    ];
 
-    return !isset($r['http_code']) || ($r['http_code'] >= 200 && $r['http_code'] < 300);
+    $data = array_merge(['id' => $userId], $fields);
+    
+    // Perform cURL POST with Service Role Key
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+    curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
+
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    return ($httpCode >= 200 && $httpCode < 300);
 }
-
 ?>
