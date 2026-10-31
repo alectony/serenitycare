@@ -1,14 +1,24 @@
 {
   "functions": {
     "api/*.php": {
-      "runtime": "vercel-php@0.7.3",
-      "includeFiles": "*.php|includes/**|admin/**|counselor/**|patient/**|public/**"
+      "runtime": "vercel-php@0.7.3"
     }
   },
   "routes": [
-    { "src": "^/css/(.*)$", "dest": "/public/css/$1" },
-    { "src": "^/js/(.*)$", "dest": "/public/js/$1" },
-    { "handle": "filesystem" },
-    { "src": "^/(.*)$", "dest": "/api/index.php" }
+    {
+      "src": "^/css/(.*)$",
+      "dest": "/public/css/$1"
+    },
+    {
+      "src": "^/js/(.*)$",
+      "dest": "/public/js/$1"
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "^/(.*)$",
+      "dest": "/api/index.php"
+    }
   ]
 }

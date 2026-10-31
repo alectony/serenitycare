@@ -9,14 +9,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
 
-    if (empty($fullName) || empty($email) || empty($password)) {
+    if ($fullName === '' || $email === '' || $password === '') {
         $error = 'Please fill in all required fields.';
+    } elseif (strlen($password) < 8) {
+        $error = 'Password must be at least 8 characters.';
     } else {
-        // Call Supabase registration helper
         $result = sb_register($email, $password, $fullName);
 
         if (isset($result['error'])) {
-            $error = is_array($result['error']) ? ($result['error']['msg'] ?? 'Registration failed') : $result['error'];
+            $error = $result['error'];
         } else {
             $success = 'Registration successful! You can now log in.';
         }
@@ -34,12 +35,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body class="auth-body">
     <div class="auth-card">
         <h2>Create Account</h2>
-        
-        <?php if (!empty($error)): ?>
+
+        <?php if ($error !== ''): ?>
             <div class="alert error"><?php echo htmlspecialchars($error); ?></div>
         <?php endif; ?>
 
-        <?php if (!empty($success)): ?>
+        <?php if ($success !== ''): ?>
             <div class="alert success"><?php echo htmlspecialchars($success); ?></div>
         <?php endif; ?>
 
@@ -56,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <div class="form-group">
                 <label for="password">Password</label>
-                <input type="password" id="password" name="password" required>
+                <input type="password" id="password" name="password" required minlength="8">
             </div>
 
             <button type="submit" class="btn-primary">Register</button>
@@ -68,11 +69,3 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 </body>
 </html>
-```[cite: 1, 2, 4, 6]
-
----
-
-### 2. Verify Vercel Routes Mapping
-Your `vercel.json` routing rules already map `/register.php` directly to `/api/register.php`[cite: 4]:
-```json
-{ "src": "^/register\\.php$", "dest": "/api/register.php" }

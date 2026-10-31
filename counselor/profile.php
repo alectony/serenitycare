@@ -1,61 +1,51 @@
 <?php
-
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/layout.php';
 
-$currentUser = require_role('counselor');
-$db = db();
+$me = require_role('counselor');
+$uid = $me['user']['id'];
+$token = $me['token'];
 $msg = '';
+$err = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $spec = $_POST['specialization'];
-    $license = $_POST['license_number'];
+    $spec = trim($_POST['specialization'] ?? '');
+    $license = trim($_POST['license_number'] ?? '');
 
-    $stmt = $db->prepare("INSERT INTO counselor_details (counselor_id, specialization, license_number) VALUES (?, ?, ?) ON CONFLICT (counselor_id) DO UPDATE SET specialization = EXCLUDED.specialization, license_number = EXCLUDED.license_number");
-    $stmt->execute([$currentUser['id'], $spec, $license]);
-    $msg = "Profile updated successfully.";
+    if (!csrf_valid()) {
+        $err = 'Session expired. Please reload the page and try again.';
+    } elseif ($spec === '' || $license === '') {
+        $err = 'Please fill in both fields.';
+    } else {
+        // Insert, or update if this counselor already has a row
+        $r = sb_request('POST', 'counselor_details', 'on_conflict=counselor_id', [
+            'counselor_id' => $uid, 'specialization' => $spec, 'license_number' => $license,
+        ], $token, 'resolution=merge-duplicates,return=representation');
+        if ($r['status'] === 200 || $r['status'] === 201) { $msg = 'Profile updated successfully.'; }
+        else { $err = 'Could not save your profile. Please try again.'; }
+    }
 }
 
-$stmt = $db->prepare("SELECT * FROM counselor_details WHERE counselor_id = ?");
-$stmt->execute([$currentUser['id']]);
-$details = $stmt->fetch();
+$res = sb_request('GET', 'counselor_details', 'counselor_id=eq.' . urlencode($uid), null, $token);
+$details = ($res['status'] === 200 && !empty($res['data'][0])) ? $res['data'][0] : [];
+
+page_start('counselor', 'My Profile', '/counselor/profile.php', 'Counselor Profile & Credentials');
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>My Profile - SerenityCare</title>
-    <link rel="stylesheet" href="/public/css/style.css">
-</head>
-<body class="dashboard-body">
-    <div class="app-layout">
-        <aside class="sidebar">
-            <div class="brand"><h2>SerenityCare</h2><span class="badge-role">COUNSELOR PORTAL</span></div>
-            <nav class="nav-links">
-                <a href="/api/counselor_dashboard/index.php">Dashboard</a>
-                <a href="/api/counselor_dashboard/schedule.php">My Schedule</a>
-                <a href="/api/counselor_dashboard/requests.php">Appointment Requests</a>
-                <a href="/api/counselor_dashboard/patients.php">Patient List</a>
-                <a href="/api/counselor_dashboard/record.php">Patient Records</a>
-                <a href="/api/counselor_dashboard/availability.php">Availability</a>
-                <a href="/api/counselor_dashboard/profile.php" class="active">My Profile</a>
-            </nav>
-            <div class="sidebar-footer"><a href="/logout.php" class="logout-btn">Log out</a></div>
-        </aside>
-        <main class="main-content">
-            <header class="top-bar"><h1>Counselor Profile & Credentials</h1></header>
             <div class="card">
-                <?php if ($msg): ?><p style="color:green;"><?= $msg ?></p><?php endif; ?>
-                <form method="POST">
+                <?php if ($msg): ?><div class="alert success"><?php echo e($msg); ?></div><?php endif; ?>
+                <?php if ($err): ?><div class="alert error"><?php echo e($err); ?></div><?php endif; ?>
+
+                <p><strong><?php echo e($me['profile']['full_name'] ?? ''); ?></strong><br><small><?php echo e($me['user']['email'] ?? ''); ?></small></p>
+
+                <form method="POST" action="/counselor/profile.php">
+                    <?php echo csrf_field(); ?>
                     <label>Specialization:</label>
-                    <input type="text" name="specialization" value="<?= htmlspecialchars($details['specialization'] ?? '') ?>" style="width:100%; margin-bottom:15px; padding:8px;" required>
+                    <input type="text" name="specialization" value="<?php echo e($details['specialization'] ?? ''); ?>" style="width:100%; margin-bottom:15px; padding:8px;" required>
 
                     <label>License Number:</label>
-                    <input type="text" name="license_number" value="<?= htmlspecialchars($details['license_number'] ?? '') ?>" style="width:100%; margin-bottom:15px; padding:8px;" required>
+                    <input type="text" name="license_number" value="<?php echo e($details['license_number'] ?? ''); ?>" style="width:100%; margin-bottom:15px; padding:8px;" required>
 
                     <button type="submit" class="btn">Save Credentials</button>
                 </form>
             </div>
-        </main>
-    </div>
-</body>
-</html>
+<?php page_end(); ?>
