@@ -69,6 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php if (!empty($error)): ?>
             <div class="alert error"><?php echo htmlspecialchars($error); ?></div>
         <?php endif; ?>
+        
         <form method="POST" action="login.php">
             <div class="form-group">
                 <label>Email Address</label>
@@ -79,6 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <input type="password" name="password" required>
             </div>
             <button type="submit" class="btn-primary">Sign In</button>
+            
         </form>
     </div>
 </body>
