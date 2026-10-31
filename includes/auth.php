@@ -30,19 +30,25 @@ function require_login() {
 
 function get_user_profile($user_id, $token) {
     $response = sb_request('GET', 'profiles', 'id=eq.' . $user_id, null, $token);
-    if (!empty($response['data'])) {
-        return $response['data'][0];
-    }
     
-    // Fallback auto-create profile if missing
+    // Check both potential response structures from sb_request
+    $profile = $response[0] ?? ($response['data'][0] ?? null);
+    if (!empty($profile) && isset($profile['role'])) {
+        return $profile;
+    }
+
+    // Fallback auto-create profile if missing (defaults to patient)
     $defaultProfile = [
-        'id' => $user_id,
         'full_name' => 'User',
         'role' => 'patient',
         'is_active' => true
     ];
-    sb_request('POST', 'profiles', '', $defaultProfile, $token);
-    return $defaultProfile;
+    
+    sb_service_upsert_profile($user_id, $defaultProfile);
+    
+    // Refetch the created profile
+    $response = sb_request('GET', 'profiles', 'id=eq.' . $user_id, null, $token);
+    return $response[0] ?? ($response['data'][0] ?? array_merge(['id' => $user_id], $defaultProfile));
 }
 
 function home_for_role($role) {
