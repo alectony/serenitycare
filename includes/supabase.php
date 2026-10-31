@@ -70,12 +70,12 @@ function sb_login($email, $password) {
     return ['error' => 'auth', 'message' => 'Invalid email or password.'];
 }
 
-function sb_register($email, $password, $fullName = '') {
+function sb_register($email, $password, $fullName = '', array $extra = []) {
     $c = get_supabase_config();
     $r = sb_http('POST', $c['url'] . '/auth/v1/signup', [
         'Content-Type: application/json',
         'apikey: ' . $c['anon_key'],
-    ], ['email' => $email, 'password' => $password, 'data' => ['full_name' => $fullName]]);
+    ], ['email' => $email, 'password' => $password, 'data' => array_merge(['full_name' => $fullName], $extra)]);
 
     if ($r['status'] === 200 || $r['status'] === 201) {
         return is_array($r['data']) ? $r['data'] : [];
@@ -114,4 +114,30 @@ function sb_request($method, $table, $query = '', $body = null, $userToken = nul
 
     return ['status' => $r['status'], 'data' => $r['data']];
 }
+
+/**
+ * Server-side only: create/update a profiles row with the service_role key.
+ * Bypasses RLS, so call it only after our own checks (e.g. a valid invite code).
+ * Returns false if SUPABASE_SERVICE_ROLE_KEY is not set or the write failed.
+ */
+function sb_service_upsert_profile($userId, array $fields) {
+    $config = get_supabase_config();
+    $key = $config['anon_key'];
+
+    if (empty($key)) {
+        return false;
+    }
+
+    if (isset($fields['role']) && !in_array($fields['role'], ['patient', 'counselor', 'admin'], true)) {
+        return false;
+    }
+
+    $endpoint = $config['url'] . '/rest/v1/profiles?on_conflict=id';
+    
+    // Use your existing sb_request or sb_http helper
+    $r = sb_request('POST', 'profiles', 'on_conflict=id', array_merge(['id' => $userId], $fields), $key);
+
+    return !isset($r['http_code']) || ($r['http_code'] >= 200 && $r['http_code'] < 300);
+}
+
 ?>

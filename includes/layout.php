@@ -83,7 +83,7 @@ function page_start($role, $title, $current, $heading = null) {
     <title><?php echo e($title); ?> - SerenityCare</title>
     <link rel="stylesheet" href="/css/style.css">
 </head>
-<body class="dashboard-body">
+<body class="dashboard-body role-<?php echo e($role); ?>">
     <div class="app-layout">
         <aside class="sidebar">
             <div class="brand"><h2>SerenityCare</h2><span class="badge-role"><?php echo e($labels[$role] ?? ''); ?></span></div>
@@ -101,4 +101,4 @@ function page_start($role, $title, $current, $heading = null) {
 
 function page_end() {
     echo "        </main>\n    </div>\n</body>\n</html>\n";
-}
+} ?>
