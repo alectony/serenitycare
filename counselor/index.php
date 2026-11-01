@@ -32,9 +32,11 @@ $upcoming = array_values(array_filter($all, fn($a) =>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SerenityCare - Counselor Dashboard</title>
-    <!-- Fixed CSS path reference -->
+    <!-- Stylesheet -->
     <link rel="stylesheet" href="../public/css/style.css">
+    <!-- Tailwind CSS for utility classes -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body class="role-counselor app-layout custom-scroll">
@@ -43,13 +45,13 @@ $upcoming = array_values(array_filter($all, fn($a) =>
     <aside class="sidebar">
         <div>
             <div class="px-6 py-6 flex items-center gap-3 border-b border-white/10">
-                <div class="w-10 h-10 rounded-xl bg-[#3d5240] text-white flex items-center justify-center font-bold text-xl shadow-inner">S</div>
+                <div class="w-10 h-10 rounded-xl bg-[#3D5240] text-white flex items-center justify-center font-bold text-xl shadow-inner">S</div>
                 <div>
                     <h1 class="font-bold text-white text-lg tracking-tight leading-none">SerenityCare</h1>
                     <span class="badge-role uppercase mt-1">Counselor Portal</span>
                 </div>
             </div>
-            <nav class="nav-links">
+            <nav class="nav-links mt-2">
                 <a href="/counselor/" class="active"><i data-lucide="layout-dashboard" class="w-4 h-4"></i>Dashboard</a>
                 <a href="/counselor/appointments.php"><i data-lucide="calendar-plus" class="w-4 h-4"></i>Book Appointment</a>
                 <a href="/counselor/appointments.php"><i data-lucide="calendar" class="w-4 h-4"></i>My Appointments</a>
@@ -57,7 +59,7 @@ $upcoming = array_values(array_filter($all, fn($a) =>
                 <a href="/counselor/summaries.php"><i data-lucide="file-text" class="w-4 h-4"></i>Session Summaries</a>
                 <a href="/counselor/notifications.php" class="justify-between">
                     <span class="flex items-center gap-3"><i data-lucide="bell" class="w-4 h-4"></i>Notifications</span>
-                    <span class="bg-[#785e13]/50 text-amber-200 text-[10px] px-2 py-0.5 rounded-full font-bold"><?php echo (int)$pendingCount; ?></span>
+                    <span class="bg-[#785E13]/50 text-amber-200 text-[10px] px-2 py-0.5 rounded-full font-bold"><?php echo (int)$pendingCount; ?></span>
                 </a>
                 <a href="/counselor/profile.php"><i data-lucide="user" class="w-4 h-4"></i>My Profile</a>
             </nav>
@@ -71,58 +73,61 @@ $upcoming = array_values(array_filter($all, fn($a) =>
     <main class="main-content">
         <header class="top-bar">
             <div>
-                <h1 class="serif-heading font-normal">Good day, <?php echo e($firstName); ?></h1>
-                <p class="text-xs text-[#716b60] mt-1">Here is a summary of your counseling care and upcoming student sessions.</p>
+                <h1 class="serif-heading font-normal text-2xl">Good day, <?php echo e($firstName); ?></h1>
+                <p class="text-xs text-[#716B60] mt-1">Here is a summary of your counseling care and upcoming student sessions.</p>
             </div>
             <div class="flex items-center gap-4">
                 <div class="relative">
                     <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"></i>
-                    <input type="text" id="search-input" oninput="handleSearch()" placeholder="Search student or appointment..." class="pl-9 pr-4 py-2 text-xs w-56 md:w-64">
+                    <input type="text" id="search-input" oninput="handleSearch()" placeholder="Search student or appointment..." class="pl-9 pr-4 py-2 text-xs w-56 md:w-64 bg-white rounded-xl">
                 </div>
-                <div class="flex items-center gap-3 pl-3 border-l border-[#e2d8c3]">
-                    <div class="w-9 h-9 rounded-full bg-[#3d5240] text-cream-100 flex items-center justify-center font-bold text-xs shadow-sm">
+                <div class="flex items-center gap-3 pl-3 border-l border-[#E5DDCB]">
+                    <div class="w-9 h-9 rounded-full bg-[#3D5240] text-[#E3EAE4] flex items-center justify-center font-bold text-xs shadow-sm">
                         <?php echo e(strtoupper(substr($firstName, 0, 1) . (isset(explode(' ', trim($counselorName))[1]) ? substr(explode(' ', trim($counselorName))[1], 0, 1) : ''))); ?>
                     </div>
                     <div class="hidden sm:block">
-                        <p class="text-xs font-semibold text-stone-900 leading-none"><?php echo e($counselorName); ?></p>
-                        <p class="text-[10px] text-stone-500 mt-1">Guidance Counselor</p>
+                        <p class="text-xs font-semibold text-[#2C2925] leading-none"><?php echo e($counselorName); ?></p>
+                        <p class="text-[10px] text-[#716B60] mt-1">Guidance Counselor</p>
                     </div>
                 </div>
             </div>
         </header>
 
-        <div class="p-5 md:p-8 space-y-6 max-w-7xl w-full mx-auto">
+        <div class="p-6 md:p-8 space-y-6 max-w-7xl w-full mx-auto">
             <?php if ($failed): ?>
                 <div class="alert error">Could not load your appointment data. Please refresh the page.</div>
             <?php endif; ?>
 
             <div id="alert-box" class="hidden alert success flex items-center justify-between">
                 <div class="flex items-center gap-2"><i data-lucide="check-circle-2" class="w-4 h-4"></i><span id="alert-text">Action completed successfully.</span></div>
-                <button onclick="document.getElementById('alert-box').classList.add('hidden')" class="text-[#3d5240]"><i data-lucide="x" class="w-4 h-4"></i></button>
+                <button onclick="document.getElementById('alert-box').classList.add('hidden')" class="text-[#3D5240]"><i data-lucide="x" class="w-4 h-4"></i></button>
             </div>
 
             <!-- Stats Grid -->
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
                 <div class="card">
-                    <div class="flex items-center justify-between"><small class="font-semibold uppercase tracking-wider">Today's Sessions</small><i data-lucide="calendar-check" class="w-4 h-4 text-[#3d5240]"></i></div>
+                    <div class="flex items-center justify-between"><small class="font-semibold uppercase tracking-wider">Today's Sessions</small><i data-lucide="calendar-check" class="w-4 h-4 text-[#3D5240]"></i></div>
                     <div class="flex items-baseline justify-between mt-3"><h2 class="text-3xl font-bold"><?php echo count($todays); ?></h2><span class="status-badge status-confirmed">Today</span></div>
                 </div>
                 <div class="card">
-                    <div class="flex items-center justify-between"><small class="font-semibold uppercase tracking-wider">Pending Requests</small><i data-lucide="clock" class="w-4 h-4 text-[#785e13]"></i></div>
+                    <div class="flex items-center justify-between"><small class="font-semibold uppercase tracking-wider">Pending Requests</small><i data-lucide="clock" class="w-4 h-4 text-[#785E13]"></i></div>
                     <div class="flex items-baseline justify-between mt-3"><h2 class="text-3xl font-bold" id="stat-pending"><?php echo $pendingCount; ?></h2><span class="status-badge status-pending">Awaiting review</span></div>
                 </div>
                 <div class="card">
-                    <div class="flex items-center justify-between"><small class="font-semibold uppercase tracking-wider">Active Patients</small><i data-lucide="users" class="w-4 h-4 text-[#3d5240]"></i></div>
-                    <div class="flex items-baseline justify-between mt-3"><h2 class="text-3xl font-bold"><?php echo $patientCount; ?></h2><span class="text-[11px] text-[#716b60] font-medium">Unique patients</span></div>
+                    <div class="flex items-center justify-between"><small class="font-semibold uppercase tracking-wider">Active Patients</small><i data-lucide="users" class="w-4 h-4 text-[#3D5240]"></i></div>
+                    <div class="flex items-baseline justify-between mt-3"><h2 class="text-3xl font-bold"><?php echo $patientCount; ?></h2><span class="text-[11px] text-[#716B60] font-medium">Unique patients</span></div>
                 </div>
             </div>
 
             <!-- Dashboard Content Grid -->
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <section class="lg:col-span-2 card">
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[#e8dfce] gap-3">
-                        <div><h2 class="text-lg font-bold">Upcoming Appointments</h2><p class="text-xs text-[#716b60]">Your scheduled counseling sessions and requests</p></div>
-                        <div class="flex gap-1 bg-[#ede6d5] p-1 rounded-xl text-xs font-semibold text-[#5c5549]">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[#E5DDCB] gap-3">
+                        <div>
+                            <h2 class="text-lg font-bold">Upcoming Appointments</h2>
+                            <p class="text-xs text-[#716B60] mt-0.5">Your scheduled counseling sessions and requests</p>
+                        </div>
+                        <div class="flex gap-1 bg-[#EDE6D5] p-1 rounded-xl text-xs font-semibold text-[#5C5549]">
                             <button type="button" onclick="filterStatus('all',this)" class="filter-tab active">All</button>
                             <button type="button" onclick="filterStatus('confirmed',this)" class="filter-tab">Confirmed</button>
                             <button type="button" onclick="filterStatus('pending',this)" class="filter-tab">Pending</button>
@@ -152,11 +157,11 @@ $upcoming = array_values(array_filter($all, fn($a) =>
                                     $timeLabel = fmt_dt($a['scheduled_at'], 'g:i A');
                                     $reason = $a['reason'] ?: 'Counseling session';
                                 ?>
-                                    <tr class="appt-row hover:bg-white/60" data-status="<?php echo e($status); ?>">
+                                    <tr class="appt-row hover:bg-white/60 transition-colors" data-status="<?php echo e($status); ?>">
                                         <td class="whitespace-nowrap">
                                             <div class="flex items-center gap-3">
-                                                <div class="bg-[#e2dac8] text-[#3d3832] font-bold rounded-xl px-3 py-1.5 text-center leading-tight">
-                                                    <div class="text-[9px] uppercase tracking-wider text-stone-500"><?php echo e($dateMonth); ?></div>
+                                                <div class="bg-[#E5DDCB] text-[#3D3832] font-bold rounded-xl px-3 py-1.5 text-center leading-tight shadow-sm">
+                                                    <div class="text-[9px] uppercase tracking-wider text-[#716B60]"><?php echo e($dateMonth); ?></div>
                                                     <div class="text-sm"><?php echo e($dateDay); ?></div>
                                                 </div>
                                                 <span class="font-semibold text-stone-800"><?php echo e($timeLabel); ?></span>
@@ -164,7 +169,7 @@ $upcoming = array_values(array_filter($all, fn($a) =>
                                         </td>
                                         <td>
                                             <div class="font-bold text-stone-900"><?php echo e($reason); ?></div>
-                                            <div class="text-stone-500 text-[11px] mt-0.5">with <?php echo e($patient); ?> · <?php echo e(ucfirst($type)); ?></div>
+                                            <div class="text-[#716B60] text-[11px] mt-0.5">with <?php echo e($patient); ?> · <?php echo e(ucfirst($type)); ?></div>
                                         </td>
                                         <td class="whitespace-nowrap">
                                             <span class="status-badge status-<?php echo e($status); ?>"><?php echo e(ucfirst($status)); ?></span>
@@ -187,32 +192,32 @@ $upcoming = array_values(array_filter($all, fn($a) =>
                             </tbody>
                         </table>
                     </div>
-                    <div class="mt-6 bg-[#3d5240] text-cream-50 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div class="mt-6 bg-[#3D5240] text-[#FAF7F0] rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
                         <div>
                             <h3 class="font-bold text-sm">Need to manage a session?</h3>
                             <p class="text-xs text-emerald-100/80 mt-0.5">Review your appointment schedule and requests.</p>
                         </div>
-                        <a href="/counselor/appointments.php" class="btn-sm whitespace-nowrap">Manage appointments</a>
+                        <a href="/counselor/appointments.php" class="btn-success-sm bg-white text-[#3D5240] font-semibold hover:bg-emerald-50 px-4 py-2 rounded-xl transition-colors text-center">Manage appointments</a>
                     </div>
                 </section>
 
-                <aside class="card h-fit">
-                    <div class="flex items-center justify-between border-b border-[#e8dfce] pb-3">
+                <aside class="card h-fit space-y-4">
+                    <div class="flex items-center justify-between border-b border-[#E5DDCB] pb-3">
                         <h2 class="font-bold text-stone-900 text-base">Appointment Overview</h2>
-                        <i data-lucide="clipboard-list" class="w-4 h-4 text-[#3d5240]"></i>
+                        <i data-lucide="clipboard-list" class="w-4 h-4 text-[#3D5240]"></i>
                     </div>
-                    <div class="space-y-3 mt-4">
-                        <div class="p-3.5 bg-white/70 rounded-xl border border-[#e8dfce]">
-                            <div class="font-bold text-xs">Today's sessions</div>
-                            <div class="text-[11px] text-stone-500 mt-1"><?php echo count($todays); ?> appointment(s) scheduled for today</div>
+                    <div class="space-y-3">
+                        <div class="p-3.5 bg-white/70 rounded-xl border border-[#E5DDCB]">
+                            <div class="font-bold text-xs text-stone-900">Today's sessions</div>
+                            <div class="text-[11px] text-[#716B60] mt-1"><?php echo count($todays); ?> appointment(s) scheduled for today</div>
                         </div>
-                        <div class="p-3.5 bg-white/70 rounded-xl border border-[#e8dfce]">
-                            <div class="font-bold text-xs">Pending requests</div>
-                            <div class="text-[11px] text-stone-500 mt-1"><?php echo (int)$pendingCount; ?> request(s) awaiting review</div>
+                        <div class="p-3.5 bg-white/70 rounded-xl border border-[#E5DDCB]">
+                            <div class="font-bold text-xs text-stone-900">Pending requests</div>
+                            <div class="text-[11px] text-[#716B60] mt-1"><?php echo (int)$pendingCount; ?> request(s) awaiting review</div>
                         </div>
-                        <div class="p-4 bg-[#e8efea] rounded-xl border border-[#cbd8ce] text-xs text-[#2c4230]">
+                        <div class="p-4 bg-[#E3EAE4] rounded-xl border border-[#CBD8CE] text-xs text-[#2C4230]">
                             <div class="font-bold">Counseling reminder</div>
-                            <p class="text-[11px] leading-relaxed text-[#3a543f] mt-1">Keep appointment information and student records confidential.</p>
+                            <p class="text-[11px] leading-relaxed text-[#3A543F] mt-1">Keep appointment information and student records confidential.</p>
                         </div>
                     </div>
                 </aside>
@@ -223,18 +228,18 @@ $upcoming = array_values(array_filter($all, fn($a) =>
     <!-- Details Modal -->
     <div id="details-modal" class="modal-overlay" role="dialog" aria-modal="true">
         <div class="modal-card space-y-4">
-            <div class="flex items-center justify-between border-b border-[#e8dfce] pb-3">
+            <div class="flex items-center justify-between border-b border-[#E5DDCB] pb-3">
                 <h3 class="font-bold text-stone-900 text-base">Appointment Details</h3>
                 <button type="button" onclick="toggleModal()" class="text-stone-400 hover:text-stone-700" aria-label="Close"><i data-lucide="x" class="w-5 h-5"></i></button>
             </div>
             <div class="space-y-2 text-xs">
-                <div class="flex justify-between gap-4 py-1 border-b border-[#eee6d5]"><span class="text-stone-500">Patient:</span><span id="modal-patient" class="font-bold text-right"></span></div>
-                <div class="flex justify-between gap-4 py-1 border-b border-[#eee6d5]"><span class="text-stone-500">Scheduled:</span><span id="modal-time" class="font-bold text-right"></span></div>
-                <div class="flex justify-between gap-4 py-1 border-b border-[#eee6d5]"><span class="text-stone-500">Patient type:</span><span id="modal-type" class="font-bold text-right"></span></div>
-                <div class="flex justify-between gap-4 py-1 border-b border-[#eee6d5]"><span class="text-stone-500">Status:</span><span id="modal-status" class="font-bold text-right text-[#3d5240]"></span></div>
-                <div class="pt-2"><p class="text-stone-500 mb-1">Reason / Topic</p><p id="modal-reason" class="font-medium text-stone-800"></p></div>
+                <div class="flex justify-between gap-4 py-1.5 border-b border-[#EEE6D5]"><span class="text-[#716B60]">Patient:</span><span id="modal-patient" class="font-bold text-stone-900 text-right"></span></div>
+                <div class="flex justify-between gap-4 py-1.5 border-b border-[#EEE6D5]"><span class="text-[#716B60]">Scheduled:</span><span id="modal-time" class="font-bold text-stone-900 text-right"></span></div>
+                <div class="flex justify-between gap-4 py-1.5 border-b border-[#EEE6D5]"><span class="text-[#716B60]">Patient type:</span><span id="modal-type" class="font-bold text-stone-900 text-right"></span></div>
+                <div class="flex justify-between gap-4 py-1.5 border-b border-[#EEE6D5]"><span class="text-[#716B60]">Status:</span><span id="modal-status" class="font-bold text-right text-[#3D5240]"></span></div>
+                <div class="pt-2"><p class="text-[#716B60] mb-1 font-semibold">Reason / Topic</p><p id="modal-reason" class="font-medium text-stone-800 bg-white p-3 rounded-xl border border-[#E5DDCB]"></p></div>
             </div>
-            <button type="button" onclick="toggleModal()" class="btn-success-sm w-full">Close</button>
+            <button type="button" onclick="toggleModal()" class="btn-success-sm w-full py-2.5 rounded-xl font-semibold">Close</button>
         </div>
     </div>
 
