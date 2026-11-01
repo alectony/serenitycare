@@ -1,5 +1,5 @@
 <?php
-// Shared helpers + page shell for every dashboard page.
+// Shared helpers + page shell for every dashboard page (counselor, patient, admin).
 date_default_timezone_set('Asia/Manila');
 
 function e($v) { return htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8'); }
@@ -11,6 +11,11 @@ function is_uuid($v) {
 function fmt_dt($iso, $format = 'M d, Y g:i A') {
     $t = strtotime((string) $iso);
     return $t ? date($format, $t) : '-';
+}
+
+function greeting() {
+    $h = (int) date('G');
+    return $h < 12 ? 'Good morning' : ($h < 18 ? 'Good afternoon' : 'Good evening');
 }
 
 /* ---- CSRF (double-submit cookie; works without PHP sessions) ---- */
@@ -30,6 +35,7 @@ function csrf_valid() {
 }
 
 /* ---- Data helpers ---- */
+// Patients who have at least one appointment with this counselor.
 function get_counselor_patients($uid, $token) {
     $r = sb_request('GET', 'appointments',
         'select=patient_id,patient:profiles!patient_id(id,full_name,email,patient_type,grade_or_dept)'
@@ -46,25 +52,68 @@ function get_counselor_patients($uid, $token) {
     return $out;
 }
 
+/* ---- UI components (same markup on every dashboard = consistent look) ---- */
+function icon($name) {
+    static $paths = [
+        'dashboard' => '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>',
+        'calendar'  => '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+        'bell'      => '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+        'users'     => '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+        'file'      => '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8"/>',
+        'clock'     => '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+        'user'      => '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+        'logout'    => '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>',
+        'check'     => '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
+    ];
+    $p = $paths[$name] ?? $paths['dashboard'];
+    return '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . $p . '</svg>';
+}
+
+function stat_card($label, $value, $note = '', $iconName = 'dashboard') {
+    return '<div class="stat-card"><div class="stat-top"><span class="stat-label">' . e($label) . '</span>'
+        . '<span class="stat-icon">' . icon($iconName) . '</span></div>'
+        . '<div class="stat-value">' . e($value) . '</div>'
+        . ($note !== '' ? '<div class="stat-note">' . e($note) . '</div>' : '') . '</div>';
+}
+
+function status_badge($status) {
+    $s = strtolower((string) $status);
+    return '<span class="status ' . e($s) . '">' . e(ucfirst($s)) . '</span>';
+}
+
 /* ---- Page shell ---- */
 function nav_for($role) {
     $nav = [
         'counselor' => [
-            '/counselor/index.php' => 'Dashboard',
-            '/counselor/availability.php' => 'Availability',
-            '/counselor/schedule.php' => 'My Appointments',
-            '/counselor/patients.php' => 'Patients',
-            '/counselor/requests.php' => 'Requests',
-            '/counselor/profile.php' => 'My Profile',
+            '/counselor/'                 => ['Dashboard', 'dashboard'],
+            '/counselor/schedule.php'     => ['My Schedule', 'calendar'],
+            '/counselor/requests.php'     => ['Appointment Requests', 'bell'],
+            '/counselor/patients.php'     => ['Patient List', 'users'],
+            '/counselor/record.php'       => ['Patient Records', 'file'],
+            '/counselor/availability.php' => ['Availability', 'clock'],
+            '/counselor/profile.php'      => ['My Profile', 'user'],
         ],
-        // ... rest of roles
+        'patient' => [
+            '/patient/'                   => ['Dashboard', 'dashboard'],
+            '/patient/appointment.php'    => ['Appointments', 'calendar'],
+        ],
+        'admin' => [
+            '/admin/'                     => ['Dashboard', 'dashboard'],
+        ],
     ];
     return $nav[$role] ?? [];
 }
 
-function page_start($role, $title, $current, $heading = null) {
-    csrf_token();
+function page_start($role, $title, $current, $heading = null, $subtitle = null) {
+    csrf_token();   // must run before any output (it may set a cookie)
+    $labels = ['counselor' => 'COUNSELOR PORTAL', 'patient' => 'PATIENT PORTAL', 'admin' => 'ADMIN PORTAL'];
+    $subs = [
+        'counselor' => 'Counselor care management and student sessions portal.',
+        'patient'   => 'Your appointments, results and care in one place.',
+        'admin'     => 'Manage users, appointments and activity across SerenityCare.',
+    ];
     $heading = $heading ?? $title;
+    $subtitle = $subtitle ?? ($subs[$role] ?? '');
     ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -72,86 +121,31 @@ function page_start($role, $title, $current, $heading = null) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo e($title); ?> - SerenityCare</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- Global CSS Stylesheet -->
-    <link rel="stylesheet" href="/public/css/style.css">
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        olive: { 50: '#f4f6f4', 100: '#e3e8e4', 200: '#c5d0c7', 500: '#526e58', 700: '#34493a', 800: '#2b3b2f', 900: '#1d2920' },
-                        cream: { 50: '#faf8f5', 100: '#f5f1ea', 200: '#eae2d4', 300: '#ddcfba', 400: '#cdba9f' },
-                        taupe: { 500: '#8c8275', 800: '#3d3832' }
-                    },
-                    fontFamily: { serif: ['Georgia', 'Cambria', 'serif'], sans: ['Inter', 'system-ui', 'sans-serif'] }
-                }
-            }
-        }
-    </script>
+    <link rel="stylesheet" href="/css/style.css">
 </head>
-<body class="min-h-screen flex flex-col md:flex-row antialiased select-none" style="background-color: #f3efe6; color: #2c2925;">
-
-    <!-- Sidebar Navigation -->
-    <aside class="w-full md:w-64 bg-gradient-to-b from-[#2e3e31] to-[#1c291f] text-[#d1cbd3] flex flex-col justify-between shrink-0 border-r border-emerald-950/20 min-h-screen sticky top-0">
-        <div>
-            <!-- Logo Header -->
-            <div class="px-6 py-6 flex items-center gap-3 border-b border-white/10">
-                <div class="w-10 h-10 rounded-xl bg-[#4a634e] text-white flex items-center justify-center font-bold text-xl shadow-inner">
-                    S
-                </div>
-                <div>
-                    <h1 class="font-bold text-white text-lg tracking-tight leading-none">SerenityCare</h1>
-                    <span class="text-[10px] text-[#9bb59f] font-semibold tracking-wider uppercase">Counselor Portal</span>
-                </div>
+<body class="dashboard-body role-<?php echo e($role); ?>">
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="brand">
+                <span class="brand-mark">S</span>
+                <div><h2>SerenityCare</h2><span class="badge-role"><?php echo e($labels[$role] ?? ''); ?></span></div>
             </div>
-
-            <!-- Nav Links -->
-            <nav class="px-3 py-6 space-y-1">
-                <?php foreach (nav_for($role) as $href => $label): 
-                    $isActive = ($href === $current);
-                ?>
-                    <a href="<?php echo e($href); ?>" class="flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-sm transition <?php echo $isActive ? 'bg-white/10 text-white border-l-4 border-[#8ba98f]' : 'text-stone-300 hover:text-white hover:bg-white/5'; ?>">
-                        <i data-lucide="<?php 
-                            echo match($label) {
-                                'Dashboard' => 'layout-dashboard',
-                                'Availability' => 'calendar-plus',
-                                'My Appointments' => 'calendar',
-                                'Patients' => 'users',
-                                'Requests' => 'bell',
-                                'My Profile' => 'user',
-                                default => 'circle'
-                            };
-                        ?>" class="w-4 h-4 <?php echo $isActive ? 'text-[#a7caa9]' : 'text-stone-400'; ?>"></i>
-                        <?php echo e($label); ?>
-                    </a>
+            <nav class="nav-links">
+                <?php foreach (nav_for($role) as $href => $item): ?>
+                    <a href="<?php echo e($href); ?>"<?php echo $href === $current ? ' class="active"' : ''; ?>><?php echo icon($item[1]); ?><span><?php echo e($item[0]); ?></span></a>
                 <?php endforeach; ?>
             </nav>
-        </div>
-
-        <!-- Footer / Sign Out -->
-        <div class="p-4 border-t border-white/10">
-            <a href="/api/logout.php" class="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-stone-400 hover:text-rose-300 hover:bg-rose-500/10 text-xs font-medium transition">
-                <i data-lucide="log-out" class="w-4 h-4"></i>
-                Log out
-            </a>
-        </div>
-    </aside>
-
-    <!-- Main Workspace -->
-    <main class="flex-1 flex flex-col min-w-0 overflow-y-auto" style="padding: 28px 32px 48px;">
-        <header class="bg-[#f3efe6] border-b border-[#e5ddcb] pb-6 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 sticky top-0 z-10">
-            <div>
-                <h1 style="font-family: Georgia, serif;" class="text-2xl md:text-3xl font-normal text-[#2c2925]"><?php echo e($heading); ?></h1>
-                <p class="text-xs text-[#716b60] mt-1">Counselor care management and student sessions portal.</p>
-            </div>
-        </header>
+            <div class="sidebar-footer"><a href="/logout.php" class="logout-btn"><?php echo icon('logout'); ?><span>Log out</span></a></div>
+        </aside>
+        <main class="main-content">
+            <header class="top-bar">
+                <h1><?php echo e($heading); ?></h1>
+                <?php if ($subtitle !== ''): ?><p class="subtitle"><?php echo e($subtitle); ?></p><?php endif; ?>
+            </header>
 <?php
 }
 
 function page_end() {
-    echo "    </main>\n<script>if(typeof lucide !== 'undefined') lucide.createIcons();</script>\n</body>\n</html>\n";
+    echo "        </main>\n    </div>\n</body>\n</html>\n";
 }
+?>

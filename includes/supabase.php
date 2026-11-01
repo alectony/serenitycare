@@ -121,41 +121,38 @@ function sb_request($method, $table, $query = '', $body = null, $userToken = nul
  * Returns false if SUPABASE_SERVICE_ROLE_KEY is not set or the write failed.
  */
 function sb_service_upsert_profile($userId, array $fields) {
-    $config = get_supabase_config();
-    // Retrieve service role key from env or config
-    $serviceKey = getenv('SUPABASE_SERVICE_ROLE_KEY') ?: ($_ENV['SUPABASE_SERVICE_ROLE_KEY'] ?? '');
-
-    if (empty($serviceKey)) {
+    $key = getenv('SUPABASE_SERVICE_ROLE_KEY') ?: ($_ENV['SUPABASE_SERVICE_ROLE_KEY'] ?? '');
+    if ($key === '') {
         return false;
     }
-
     if (isset($fields['role']) && !in_array($fields['role'], ['patient', 'counselor', 'admin'], true)) {
         return false;
     }
-
-    $url = $config['url'] . '/rest/v1/profiles?on_conflict=id';
-    
-    $headers = [
-        'apikey: ' . $serviceKey,
-        'Authorization: Bearer ' . $serviceKey,
+    $c = get_supabase_config();
+    $r = sb_http('POST', $c['url'] . '/rest/v1/profiles?on_conflict=id', [
+        'apikey: ' . $key,
+        'Authorization: Bearer ' . $key,
         'Content-Type: application/json',
-        'Prefer: resolution=merge-duplicates,return=representation'
-    ];
+        'Prefer: resolution=merge-duplicates,return=representation',
+    ], array_merge(['id' => $userId], $fields));
+    $ok = $r['status'] >= 200 && $r['status'] < 300 && !empty($r['data']);
+    if (!$ok) {
+        error_log('sb_service_upsert_profile failed: HTTP ' . $r['status'] . ' ' . substr(json_encode($r['data']), 0, 300));
+    }
+    return $ok;
+}
 
-    $data = array_merge(['id' => $userId], $fields);
-    
-    // Perform cURL POST with Service Role Key
-    $ch = curl_init($url);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
-    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-    curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
-
-    $response = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-
-    return ($httpCode >= 200 && $httpCode < 300);
+/** Server-side only: read a profile's role with the service_role key (used to double-check a role change). */
+function sb_service_get_role($userId) {
+    $key = getenv('SUPABASE_SERVICE_ROLE_KEY') ?: ($_ENV['SUPABASE_SERVICE_ROLE_KEY'] ?? '');
+    if ($key === '') {
+        return null;
+    }
+    $c = get_supabase_config();
+    $r = sb_http('GET', $c['url'] . '/rest/v1/profiles?select=role&id=eq.' . urlencode($userId), [
+        'apikey: ' . $key,
+        'Authorization: Bearer ' . $key,
+    ]);
+    return ($r['status'] === 200 && !empty($r['data'][0]['role'])) ? $r['data'][0]['role'] : null;
 }
 ?>
