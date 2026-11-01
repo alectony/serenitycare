@@ -57,13 +57,7 @@ function nav_for($role) {
             '/counselor/requests.php' => 'Requests',
             '/counselor/profile.php' => 'My Profile',
         ],
-        'patient' => [
-            '/patient/' => 'Dashboard',
-            '/patient/appointment.php' => 'Appointments',
-        ],
-        'admin' => [
-            '/admin/' => 'Dashboard',
-        ],
+        // ... rest of roles
     ];
     return $nav[$role] ?? [];
 }
