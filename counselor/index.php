@@ -1,29 +1,15 @@
 <?php
-require_once __DIR__ . '/../includes/auth.php';
-require_once __DIR__ . '/../includes/layout.php';
-
-$me = require_role('counselor');
-$uid = $me['user']['id'];
-
-$res = sb_request('GET', 'appointments',
-    'select=id,patient_id,scheduled_at,status,reason,patient:profiles!patient_id(full_name,patient_type)'
-    . '&counselor_id=eq.' . urlencode($uid) . '&order=scheduled_at.asc', null, $me['token']);
-
-$failed = ($res['status'] !== 200 || !is_array($res['data']));
-$all = $failed ? [] : $res['data'];
-
 $today = date('Y-m-d');
 $todays = array_values(array_filter($all, fn($a) =>
     date('Y-m-d', strtotime($a['scheduled_at'])) === $today
     && in_array($a['status'], ['pending', 'confirmed', 'completed'], true)));
 $pendingCount = count(array_filter($all, fn($a) => $a['status'] === 'pending'));
 $patientCount = count(array_unique(array_column($all, 'patient_id')));
-
-$counselorName = $me['profile']['full_name'] ?? 'Counselor';
-$firstName = explode(' ', trim($counselorName))[0];
-
-page_start('counselor', 'Dashboard', '/counselor/', 'Good morning, ' . $firstName);
 ?>
+
+<!-- Tailwind CSS & Lucide Icons CDN for layout utility cards -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
 
 <div class="space-y-6 max-w-7xl w-full mx-auto">
     
@@ -287,7 +273,3 @@ page_start('counselor', 'Dashboard', '/counselor/', 'Good morning, ' . $firstNam
         box.classList.remove('hidden');
     }
 </script>
-
-<?php 
-page_end(); 
-?>
