@@ -32,7 +32,8 @@ $upcoming = array_values(array_filter($all, fn($a) =>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SerenityCare - Counselor Dashboard</title>
-    <link rel="stylesheet" href="/public/css/style.css">
+    <!-- Fixed CSS path reference -->
+    <link rel="stylesheet" href="../public/css/style.css">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
 </head>
