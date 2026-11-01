@@ -48,32 +48,44 @@ $selected = $_POST['patient_id'] ?? ($_GET['patient_id'] ?? '');
 page_start('counselor', 'Patient Records', '/counselor/record.php', 'Session Notes & Diagnosis Editor');
 ?>
             <div class="card">
+                <div class="card-head"><div><h2>New Record</h2><p class="card-sub">Private notes stay with you; only shared diagnoses reach the patient</p></div></div>
                 <?php if ($msg): ?><div class="alert success"><?php echo e($msg); ?></div><?php endif; ?>
                 <?php if ($err): ?><div class="alert error"><?php echo e($err); ?></div><?php endif; ?>
+
                 <form method="POST" action="/counselor/record.php">
                     <?php echo csrf_field(); ?>
-                    <label>Select Patient:</label>
-                    <select name="patient_id" required style="display:block; margin-bottom:15px; padding:8px; width:100%;">
-                        <option value="">-- Choose Patient --</option>
-                        <?php foreach ($patients as $p): ?>
-                            <option value="<?php echo e($p['id']); ?>" <?php echo $selected === $p['id'] ? 'selected' : ''; ?>><?php echo e($p['full_name']); ?></option>
-                        <?php endforeach; ?>
-                    </select>
 
-                    <label>Session Notes (Private to Counselor):</label>
-                    <textarea name="private_notes" rows="4" style="width:100%; margin-bottom:15px; padding:8px;" required></textarea>
-
-                    <label>Diagnosis:</label>
-                    <input type="text" name="diagnosis" style="width:100%; margin-bottom:15px; padding:8px;" required>
-
-                    <label>Recommendations / Results:</label>
-                    <input type="text" name="recommendations" style="width:100%; margin-bottom:15px; padding:8px;" required>
-
-                    <div style="margin-bottom:15px;">
-                        <label><input type="checkbox" name="shared_with_patient" value="1"> Share diagnosis with patient</label>
+                    <div class="field">
+                        <label for="patient_id">Select patient</label>
+                        <select id="patient_id" name="patient_id" required>
+                            <option value="">-- Choose patient --</option>
+                            <?php foreach ($patients as $p): ?>
+                                <option value="<?php echo e($p['id']); ?>"<?php echo $selected === $p['id'] ? ' selected' : ''; ?>><?php echo e($p['full_name']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
                     </div>
 
-                    <button type="submit" class="btn" style="background:#2A9D8F; color:white; padding:10px 20px;">Save record</button>
+                    <div class="field">
+                        <label for="private_notes">Session notes (private to counselor)</label>
+                        <textarea id="private_notes" name="private_notes" rows="4" required></textarea>
+                    </div>
+
+                    <div class="field">
+                        <label for="diagnosis">Diagnosis</label>
+                        <input type="text" id="diagnosis" name="diagnosis" required>
+                    </div>
+
+                    <div class="field">
+                        <label for="recommendations">Recommendations / results</label>
+                        <input type="text" id="recommendations" name="recommendations" required>
+                    </div>
+
+                    <div class="checkbox-row">
+                        <input type="checkbox" id="shared_with_patient" name="shared_with_patient" value="1">
+                        <label for="shared_with_patient">Share diagnosis with patient</label>
+                    </div>
+
+                    <button type="submit" class="btn">Save record</button>
                 </form>
             </div>
 <?php page_end(); ?>

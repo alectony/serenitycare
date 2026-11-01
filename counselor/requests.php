@@ -29,24 +29,29 @@ $requests = $failed ? [] : $res['data'];
 page_start('counselor', 'Appointment Requests', '/counselor/requests.php', 'Pending Appointment Requests');
 ?>
             <div class="card">
+                <div class="card-head"><div><h2>Waiting for your decision</h2><p class="card-sub">Approve or decline each request</p></div></div>
                 <?php if ($failed): ?><div class="alert error">Could not load requests. Please try again.</div><?php endif; ?>
+
                 <?php if (!$requests && !$failed): ?>
-                    <p>No pending appointment requests at this time.</p>
-                <?php else: foreach ($requests as $req): ?>
-                    <div class="request-item" style="display:flex; justify-content:space-between; padding:15px; border-bottom:1px solid #eee;">
-                        <div>
-                            <strong><?php echo e($req['patient']['full_name'] ?? 'Unknown'); ?></strong>
-                            (<?php echo e(ucfirst($req['patient']['patient_type'] ?? '-')); ?>)<br>
-                            <small><?php echo e(fmt_dt($req['scheduled_at'], 'F d, Y - g:i A')); ?></small>
-                            <?php if (!empty($req['reason'])): ?><br><small>Reason: <?php echo e($req['reason']); ?></small><?php endif; ?>
+                    <p class="empty">No pending appointment requests at this time.</p>
+                <?php else: ?>
+                    <div class="request-list">
+                    <?php foreach ($requests as $req): ?>
+                        <div class="request-item">
+                            <div>
+                                <strong><?php echo e($req['patient']['full_name'] ?? 'Unknown'); ?></strong>
+                                <small><?php echo e(ucfirst($req['patient']['patient_type'] ?? '-')); ?> · <?php echo e(fmt_dt($req['scheduled_at'], 'F d, Y - g:i A')); ?></small>
+                                <?php if (!empty($req['reason'])): ?><small>Reason: <?php echo e($req['reason']); ?></small><?php endif; ?>
+                            </div>
+                            <form method="POST" action="/counselor/requests.php" class="request-actions">
+                                <?php echo csrf_field(); ?>
+                                <input type="hidden" name="appointment_id" value="<?php echo e($req['id']); ?>">
+                                <button type="submit" name="action" value="approve" class="btn btn-success-sm">Approve</button>
+                                <button type="submit" name="action" value="decline" class="btn btn-outline-danger-sm">Decline</button>
+                            </form>
                         </div>
-                        <form method="POST" action="/counselor/requests.php">
-                            <?php echo csrf_field(); ?>
-                            <input type="hidden" name="appointment_id" value="<?php echo e($req['id']); ?>">
-                            <button type="submit" name="action" value="approve" class="btn btn-success-sm">Approve</button>
-                            <button type="submit" name="action" value="decline" class="btn btn-outline-danger-sm">Decline</button>
-                        </form>
+                    <?php endforeach; ?>
                     </div>
-                <?php endforeach; endif; ?>
+                <?php endif; ?>
             </div>
 <?php page_end(); ?>

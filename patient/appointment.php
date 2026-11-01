@@ -54,8 +54,8 @@ $mine = ($ar['status'] === 200 && is_array($ar['data'])) ? $ar['data'] : [];
 
 page_start('patient', 'Appointments', '/patient/appointment.php', 'Book & Manage Appointments');
 ?>
-            <div class="card" style="margin-bottom:16px;">
-                <h2>Book an Appointment</h2>
+            <div class="card">
+                <div class="card-head"><div><h2>Book an Appointment</h2><p class="card-sub">Your counselor will confirm the request</p></div></div>
                 <?php if ($msg): ?><div class="alert success"><?php echo e($msg); ?></div><?php endif; ?>
                 <?php if ($err): ?><div class="alert error"><?php echo e($err); ?></div><?php endif; ?>
 
@@ -63,40 +63,51 @@ page_start('patient', 'Appointments', '/patient/appointment.php', 'Book & Manage
                     <?php echo csrf_field(); ?>
                     <input type="hidden" name="action" value="book">
 
-                    <label>Counselor:</label>
-                    <select name="counselor_id" required style="display:block; margin-bottom:15px; padding:8px; width:100%;">
-                        <option value="">-- Choose counselor --</option>
-                        <?php foreach ($counselors as $c): ?>
-                            <option value="<?php echo e($c['id']); ?>"><?php echo e($c['full_name']); ?></option>
-                        <?php endforeach; ?>
-                    </select>
+                    <div class="field">
+                        <label for="counselor_id">Counselor</label>
+                        <select id="counselor_id" name="counselor_id" required>
+                            <option value="">-- Choose counselor --</option>
+                            <?php foreach ($counselors as $c): ?>
+                                <option value="<?php echo e($c['id']); ?>"><?php echo e($c['full_name']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
 
-                    <label>Date &amp; time:</label>
-                    <input type="datetime-local" name="scheduled_at" required style="display:block; margin-bottom:15px; padding:8px;">
+                    <div class="field">
+                        <label for="scheduled_at">Date &amp; time</label>
+                        <input type="datetime-local" id="scheduled_at" name="scheduled_at" required>
+                    </div>
 
-                    <label>Reason for visit:</label>
-                    <textarea name="reason" rows="3" maxlength="500" required style="width:100%; margin-bottom:15px; padding:8px;"></textarea>
+                    <div class="field">
+                        <label for="reason">Reason for visit</label>
+                        <textarea id="reason" name="reason" rows="3" maxlength="500" required></textarea>
+                    </div>
 
                     <button type="submit" class="btn">Request appointment</button>
                 </form>
             </div>
 
             <div class="card">
-                <h2>My Appointments</h2>
+                <div class="card-head"><h2>My Appointments</h2></div>
                 <table class="data-table">
-                    <thead><tr><th>Date &amp; Time</th><th>Counselor</th><th>Reason</th><th>Status</th><th></th></tr></thead>
+                    <thead><tr><th>Date / Time</th><th>Counselor</th><th>Reason</th><th>Status</th><th>Action</th></tr></thead>
                     <tbody>
                     <?php if (!$mine): ?>
                         <tr><td colspan="5">You have no appointments yet.</td></tr>
-                    <?php else: foreach ($mine as $a): ?>
+                    <?php else: foreach ($mine as $a): $ts = strtotime($a['scheduled_at']); ?>
                         <tr>
-                            <td><?php echo e(fmt_dt($a['scheduled_at'])); ?></td>
-                            <td><?php echo e($a['counselor']['full_name'] ?? 'Counselor'); ?></td>
+                            <td>
+                                <div class="when">
+                                    <span class="date-chip"><small><?php echo e(strtoupper(date('M', $ts))); ?></small><strong><?php echo e(date('d', $ts)); ?></strong></span>
+                                    <span><?php echo e(date('g:i A', $ts)); ?></span>
+                                </div>
+                            </td>
+                            <td><strong><?php echo e($a['counselor']['full_name'] ?? 'Counselor'); ?></strong></td>
                             <td><?php echo e($a['reason'] ?? '-'); ?></td>
-                            <td><span class="status <?php echo e($a['status']); ?>"><?php echo e(ucfirst($a['status'])); ?></span></td>
+                            <td><?php echo status_badge($a['status']); ?></td>
                             <td>
                                 <?php if (in_array($a['status'], ['pending', 'confirmed'], true)): ?>
-                                    <form method="POST" action="/patient/appointment.php" style="display:inline;">
+                                    <form method="POST" action="/patient/appointment.php" class="inline-form">
                                         <?php echo csrf_field(); ?>
                                         <input type="hidden" name="action" value="cancel">
                                         <input type="hidden" name="appointment_id" value="<?php echo e($a['id']); ?>">

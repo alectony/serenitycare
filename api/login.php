@@ -35,7 +35,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - SerenityCare</title>
@@ -43,7 +42,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head>
 <body class="auth-body">
     <div class="auth-card">
-        <h2>SerenityCare Login</h2>
+        <div class="auth-brand"><span class="brand-mark">S</span><span>SerenityCare</span></div>
+        <h2>Welcome back</h2>
+        <p class="auth-sub">Sign in to continue to your portal.</p>
         <?php if ($error !== ''): ?>
             <div class="alert error"><?php echo htmlspecialchars($error); ?></div>
         <?php endif; ?>
@@ -58,7 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <input type="password" id="password" name="password" required>
             </div>
             <button type="submit" class="btn-primary">Sign In</button>
-            <button type="button" class="btn-secondary" onclick="window.location.href='/register.php'">Register</button>
+            <a href="/register.php" class="btn-secondary">Create an account</a>
         </form>
     </div>
 </body>

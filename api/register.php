@@ -60,10 +60,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             if ($privileged) {
-                if ($validUid && sb_service_upsert_profile($uid, $profile)) {
+                if ($validUid && sb_service_upsert_profile($uid, $profile) && sb_service_get_role($uid) === $type) {
                     $success = 'Registration successful! You can now log in as ' . $types[$type] . '.';
                 } else {
-                    $error = 'Your account was created, but the role could not be assigned. Please contact an administrator.';
+                    $error = 'Your account was created, but the ' . $type . ' role could not be assigned, so it is still a patient account. Please contact an administrator.';
                 }
             } else {
                 if ($validUid) { sb_service_upsert_profile($uid, $profile); }   // safety net only
@@ -84,7 +84,9 @@ $selectedType = $_POST['account_type'] ?? 'student';
 </head>
 <body class="auth-body">
     <div class="auth-card">
-        <h2>Create Account</h2>
+        <div class="auth-brand"><span class="brand-mark">S</span><span>SerenityCare</span></div>
+        <h2>Create your account</h2>
+        <p class="auth-sub">Students, teachers, counselors and administrators.</p>
 
         <?php if ($error !== ''): ?>
             <div class="alert error"><?php echo htmlspecialchars($error); ?></div>
@@ -113,13 +115,13 @@ $selectedType = $_POST['account_type'] ?? 'student';
                 <input type="email" id="email" name="email" required value="<?php echo htmlspecialchars($_POST['email'] ?? ''); ?>">
             </div>
 
-            <div class="form-group" id="dept-group">
-                <label for="grade_or_dept">Grade / Department (optional)</label>
+            <div class="form-group">
+                <label for="grade_or_dept">Grade / Department (students &amp; teachers, optional)</label>
                 <input type="text" id="grade_or_dept" name="grade_or_dept" maxlength="100" value="<?php echo htmlspecialchars($_POST['grade_or_dept'] ?? ''); ?>">
             </div>
 
-            <div class="form-group" id="invite-group" style="display:none;">
-                <label for="invite_code">Invite Code</label>
+            <div class="form-group">
+                <label for="invite_code">Invite code (counselors &amp; administrators only)</label>
                 <input type="password" id="invite_code" name="invite_code" autocomplete="off">
             </div>
 
@@ -136,15 +138,5 @@ $selectedType = $_POST['account_type'] ?? 'student';
         </p>
     </div>
 
-    <script>
-        var sel = document.getElementById('account_type');
-        function toggleFields() {
-            var privileged = sel.value === 'counselor' || sel.value === 'admin';
-            document.getElementById('invite-group').style.display = privileged ? 'block' : 'none';
-            document.getElementById('dept-group').style.display = privileged ? 'none' : 'block';
-        }
-        sel.addEventListener('change', toggleFields);
-        toggleFields();
-    </script>
 </body>
 </html>

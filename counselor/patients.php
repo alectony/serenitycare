@@ -14,10 +14,13 @@ if ($search !== '') {
 page_start('counselor', 'Patient List', '/counselor/patients.php', 'Your Patients');
 ?>
             <div class="card">
-                <form method="GET" action="/counselor/patients.php" style="margin-bottom:20px;">
-                    <input type="text" name="search" value="<?php echo e($search); ?>" placeholder="Search by name or email..." style="padding:8px; width:300px;">
+                <div class="card-head"><div><h2>Assigned Patients</h2><p class="card-sub">Students and staff who have booked with you</p></div></div>
+
+                <form method="GET" action="/counselor/patients.php" class="search-form">
+                    <input type="text" name="search" value="<?php echo e($search); ?>" placeholder="Search by name or email...">
                     <button type="submit" class="btn">Search</button>
                 </form>
+
                 <table class="data-table">
                     <thead><tr><th>Full Name</th><th>Type</th><th>Grade / Department</th><th>Email</th><th>Action</th></tr></thead>
                     <tbody>
@@ -25,7 +28,7 @@ page_start('counselor', 'Patient List', '/counselor/patients.php', 'Your Patient
                         <tr><td colspan="5">No patients found.</td></tr>
                     <?php else: foreach ($patients as $p): ?>
                         <tr>
-                            <td><?php echo e($p['full_name']); ?></td>
+                            <td><strong><?php echo e($p['full_name']); ?></strong></td>
                             <td><?php echo e(ucfirst($p['patient_type'] ?? '-')); ?></td>
                             <td><?php echo e($p['grade_or_dept'] ?? 'N/A'); ?></td>
                             <td><?php echo e($p['email'] ?? ''); ?></td>

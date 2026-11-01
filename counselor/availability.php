@@ -40,40 +40,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$res = sb_request('GET', 'availability', 'counselor_id=eq.' . urlencode($uid) . '&order=day_of_week.asc,start_time.asc', null, $token);
+$res = sb_request('GET', 'availability', 'counselor_id=eq.' . urlencode($uid), null, $token);
 $slots = ($res['status'] === 200 && is_array($res['data'])) ? $res['data'] : [];
-usort($slots, fn($a, $b) => array_search($a['day_of_week'], $GLOBALS['days']) <=> array_search($b['day_of_week'], $GLOBALS['days']));
+usort($slots, fn($a, $b) =>
+    [array_search($a['day_of_week'], $days), $a['start_time']] <=> [array_search($b['day_of_week'], $days), $b['start_time']]);
 
 page_start('counselor', 'Availability', '/counselor/availability.php', 'Manage Availability Slots');
 ?>
             <div class="card">
+                <div class="card-head"><div><h2>Add a time block</h2><p class="card-sub">Patients can request sessions inside the hours you set</p></div></div>
                 <?php if ($msg): ?><div class="alert success"><?php echo e($msg); ?></div><?php endif; ?>
                 <?php if ($err): ?><div class="alert error"><?php echo e($err); ?></div><?php endif; ?>
 
-                <form method="POST" action="/counselor/availability.php" style="margin-bottom:20px;">
+                <form method="POST" action="/counselor/availability.php" class="form-row">
                     <?php echo csrf_field(); ?>
                     <input type="hidden" name="action" value="add">
-                    <select name="day_of_week" required style="padding:8px;">
-                        <?php foreach ($days as $d): ?><option value="<?php echo e($d); ?>"><?php echo e($d); ?></option><?php endforeach; ?>
-                    </select>
-                    <input type="time" name="start_time" required style="padding:8px;">
-                    <input type="time" name="end_time" required style="padding:8px;">
-                    <button type="submit" class="btn">Add Slot</button>
+                    <div class="field">
+                        <label for="day_of_week">Day</label>
+                        <select id="day_of_week" name="day_of_week" required>
+                            <?php foreach ($days as $d): ?><option value="<?php echo e($d); ?>"><?php echo e($d); ?></option><?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="start_time">From</label>
+                        <input type="time" id="start_time" name="start_time" required>
+                    </div>
+                    <div class="field">
+                        <label for="end_time">To</label>
+                        <input type="time" id="end_time" name="end_time" required>
+                    </div>
+                    <button type="submit" class="btn">Add slot</button>
                 </form>
+            </div>
 
-                <?php if (!$slots): ?><p>No availability slots yet.</p><?php endif; ?>
-                <ul>
-                    <?php foreach ($slots as $s): ?>
-                        <li>
-                            <?php echo e($s['day_of_week']); ?>: <?php echo e(substr($s['start_time'], 0, 5)); ?> - <?php echo e(substr($s['end_time'], 0, 5)); ?>
-                            <form method="POST" action="/counselor/availability.php" style="display:inline;">
-                                <?php echo csrf_field(); ?>
-                                <input type="hidden" name="action" value="delete">
-                                <input type="hidden" name="slot_id" value="<?php echo e($s['id']); ?>">
-                                <button type="submit" class="btn-sm">Remove</button>
-                            </form>
-                        </li>
-                    <?php endforeach; ?>
-                </ul>
+            <div class="card">
+                <div class="card-head"><h2>Your availability</h2></div>
+                <?php if (!$slots): ?>
+                    <p class="empty">No availability slots yet.</p>
+                <?php else: ?>
+                    <ul class="slot-list">
+                        <?php foreach ($slots as $s): ?>
+                            <li>
+                                <span><strong><?php echo e($s['day_of_week']); ?></strong> · <?php echo e(substr($s['start_time'], 0, 5)); ?> – <?php echo e(substr($s['end_time'], 0, 5)); ?></span>
+                                <form method="POST" action="/counselor/availability.php" class="inline-form">
+                                    <?php echo csrf_field(); ?>
+                                    <input type="hidden" name="action" value="delete">
+                                    <input type="hidden" name="slot_id" value="<?php echo e($s['id']); ?>">
+                                    <button type="submit" class="btn-sm">Remove</button>
+                                </form>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php endif; ?>
             </div>
 <?php page_end(); ?>
