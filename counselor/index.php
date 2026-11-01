@@ -20,12 +20,12 @@ $pendingCount = count(array_filter($all, fn($a) => $a['status'] === 'pending'));
 $patientCount = count(array_unique(array_column($all, 'patient_id')));
 
 $counselorName = $me['profile']['full_name'] ?? 'Counselor';
+$firstName = explode(' ', trim($counselorName))[0];
 
 page_start('counselor', 'Dashboard', '/counselor/', 'Welcome, ' . $counselorName);
 ?>
 
-<!-- Explicitly link your global project CSS and Tailwind utilities -->
-<link rel="stylesheet" href="/public/css/style.css">
+<!-- Tailwind CSS & Lucide Icons CDN for layout utility cards -->
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
 
