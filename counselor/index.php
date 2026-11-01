@@ -1,10 +1,34 @@
 <?php
+require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/layout.php';
+
+$me = require_role('counselor');
+$uid = $me['user']['id'] ?? '';
+
+// Ensure $all is always defined safely as an array
+$all = [];
+$failed = true;
+
+if (!empty($uid) && !empty($me['token'])) {
+    $res = sb_request('GET', 'appointments',
+        'select=id,patient_id,scheduled_at,status,reason,patient:profiles!patient_id(full_name,patient_type)'
+        . '&counselor_id=eq.' . urlencode($uid) . '&order=scheduled_at.asc', null, $me['token']);
+
+    $failed = ($res['status'] !== 200 || !is_array($res['data']));
+    $all = $failed ? [] : $res['data'];
+}
+
 $today = date('Y-m-d');
 $todays = array_values(array_filter($all, fn($a) =>
-    date('Y-m-d', strtotime($a['scheduled_at'])) === $today
-    && in_array($a['status'], ['pending', 'confirmed', 'completed'], true)));
-$pendingCount = count(array_filter($all, fn($a) => $a['status'] === 'pending'));
+    isset($a['scheduled_at']) && date('Y-m-d', strtotime($a['scheduled_at'])) === $today
+    && in_array($a['status'] ?? '', ['pending', 'confirmed', 'completed'], true)));
+$pendingCount = count(array_filter($all, fn($a) => ($a['status'] ?? '') === 'pending'));
 $patientCount = count(array_unique(array_column($all, 'patient_id')));
+
+$counselorName = $me['profile']['full_name'] ?? 'Counselor';
+$firstName = explode(' ', trim($counselorName))[0];
+
+page_start('counselor', 'Dashboard', '/counselor/', 'Good morning, ' . $firstName);
 ?>
 
 <!-- Tailwind CSS & Lucide Icons CDN for layout utility cards -->
@@ -105,14 +129,14 @@ $patientCount = count(array_unique(array_column($all, 'patient_id')));
                             <?php if (empty($all)): ?>
                                 <tr><td colspan="5" class="py-6 text-center text-stone-500 italic">No appointments found.</td></tr>
                             <?php else: foreach ($all as $a): 
-                                $timestamp = strtotime($a['scheduled_at']);
-                                $month = strtoupper(date('M', $timestamp));
-                                $day = date('d', $timestamp);
-                                $timeStr = date('g:i A', $timestamp);
+                                $timestamp = isset($a['scheduled_at']) ? strtotime($a['scheduled_at']) : false;
+                                $month = $timestamp ? strtoupper(date('M', $timestamp)) : '-';
+                                $day = $timestamp ? date('d', $timestamp) : '-';
+                                $timeStr = $timestamp ? date('g:i A', $timestamp) : '-';
                                 $patientName = $a['patient']['full_name'] ?? 'Unknown';
                                 $patientType = ucfirst($a['patient']['patient_type'] ?? '-');
                                 $reason = $a['reason'] ?? '-';
-                                $status = strtolower($a['status']);
+                                $status = strtolower($a['status'] ?? 'pending');
                             ?>
                                 <tr class="appt-row transition hover:bg-white/60" data-status="<?php echo e($status); ?>" data-patient="<?php echo e(strtolower($patientName)); ?>">
                                     <td class="whitespace-nowrap">
@@ -273,3 +297,7 @@ $patientCount = count(array_unique(array_column($all, 'patient_id')));
         box.classList.remove('hidden');
     }
 </script>
+
+<?php 
+page_end(); 
+?>
