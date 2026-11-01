@@ -81,7 +81,7 @@ function page_start($role, $title, $current, $heading = null) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo e($title); ?> - SerenityCare</title>
-    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/public/css/style.css">
 </head>
 <body class="dashboard-body role-<?php echo e($role); ?>">
     <div class="app-layout">

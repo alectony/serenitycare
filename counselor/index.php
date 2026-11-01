@@ -21,11 +21,11 @@ $patientCount = count(array_unique(array_column($all, 'patient_id')));
 
 $counselorName = $me['profile']['full_name'] ?? 'Counselor';
 
-// Start page using the global layout engine
 page_start('counselor', 'Dashboard', '/counselor/', 'Welcome, ' . $counselorName);
 ?>
 
-<!-- Tailwind CSS & Lucide Icons for dashboard grid and utility cards -->
+<!-- Explicitly link your global project CSS and Tailwind utilities -->
+<link rel="stylesheet" href="/public/css/style.css">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
 
@@ -295,6 +295,5 @@ page_start('counselor', 'Dashboard', '/counselor/', 'Welcome, ' . $counselorName
 </script>
 
 <?php 
-// Closes out the layout shell nicely
 page_end(); 
 ?>
