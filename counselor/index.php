@@ -32,11 +32,9 @@ $upcoming = array_values(array_filter($all, fn($a) =>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SerenityCare - Counselor Dashboard</title>
-    <!-- Stylesheet -->
-    <link rel="stylesheet" href="../public/css/style.css">
-    <!-- Tailwind CSS for utility classes -->
+    <!-- Fixed absolute CSS path reference -->
+    <link rel="stylesheet" href="/public/css/style.css">
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body class="role-counselor app-layout custom-scroll">
