@@ -20,12 +20,12 @@ $pendingCount = count(array_filter($all, fn($a) => $a['status'] === 'pending'));
 $patientCount = count(array_unique(array_column($all, 'patient_id')));
 
 $counselorName = $me['profile']['full_name'] ?? 'Counselor';
-$firstName = explode(' ', trim($counselorName))[0];
 
+// Start page using the global layout engine
 page_start('counselor', 'Dashboard', '/counselor/', 'Welcome, ' . $counselorName);
 ?>
 
-<!-- Tailwind CSS & Lucide Icons CDN for layout utility cards -->
+<!-- Tailwind CSS & Lucide Icons for dashboard grid and utility cards -->
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
 
@@ -295,5 +295,6 @@ page_start('counselor', 'Dashboard', '/counselor/', 'Welcome, ' . $counselorName
 </script>
 
 <?php 
+// Closes out the layout shell nicely
 page_end(); 
 ?>
