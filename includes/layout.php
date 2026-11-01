@@ -50,7 +50,7 @@ function get_counselor_patients($uid, $token) {
 function nav_for($role) {
     $nav = [
         'counselor' => [
-            '/counselor/' => 'Dashboard',
+            '/counselor/index.php' => 'Dashboard',
             '/counselor/availability.php' => 'Availability',
             '/counselor/schedule.php' => 'My Appointments',
             '/counselor/patients.php' => 'Patients',
