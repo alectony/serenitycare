@@ -9,29 +9,24 @@ $token = $me['token'];
 // Capture search query parameter
 $search = trim($_GET['q'] ?? '');
 
-// Build query parameters for Supabase
+// Build query parameters for Supabase appointments (maintaining dashboard data context)
 $queryParams = 'select=id,patient_id,scheduled_at,status,reason,patient:profiles!patient_id(full_name,patient_type)'
-    . '&counselor_id=eq.' . urlencode($uid);
-
-if ($search !== '') {
-    $queryParams .= '&or=(reason.ilike.*' . urlencode($search) . '*)';
-}
-
-$queryParams .= '&order=scheduled_at.desc';
+    . '&counselor_id=eq.' . urlencode($uid) . '&order=scheduled_at.desc';
 
 $res = sb_request('GET', 'appointments', $queryParams, null, $token);
 $failed = ($res['status'] !== 200 || !is_array($res['data']));
 $all = $failed ? [] : $res['data'];
 
-// Secondary filter in PHP for patient name matching when searching across relations
-if ($search !== '' && !empty($all)) {
-    $searchLower = strtolower($search);
-    $all = array_filter($all, function($a) use ($searchLower) {
-        $reasonMatch = isset($a['reason']) && strpos(strtolower($a['reason']), $searchLower) !== false;
-        $nameMatch = isset($a['patient']['full_name']) && strpos(strtolower($a['patient']['full_name']), $searchLower) !== false;
-        return $reasonMatch || $nameMatch;
-    });
-    $all = array_values($all);
+// Direct patient profile search for the pop-up modal window
+$patientResults = [];
+if ($search !== '') {
+    $patientQuery = 'select=id,full_name,email,patient_type,grade_or_dept,created_at,role&role=eq.patient'
+        . '&or=(full_name.ilike.*' . urlencode($search) . '*,email.ilike.*' . urlencode($search) . '*)'
+        . '&order=full_name.asc';
+    $pRes = sb_request('GET', 'profiles', $patientQuery, null, $token);
+    if ($pRes['status'] === 200 && is_array($pRes['data'])) {
+        $patientResults = $pRes['data'];
+    }
 }
 
 $dx = sb_request('GET', 'diagnoses',
@@ -39,7 +34,7 @@ $dx = sb_request('GET', 'diagnoses',
     . '&counselor_id=eq.' . urlencode($uid) . '&order=created_at.desc&limit=3', null, $token);
 $records = ($dx['status'] === 200 && is_array($dx['data'])) ? $dx['data'] : [];
 
-// Filter tabs + details panel are driven by the URL (?status=pending&view=<id>), no JavaScript.
+// Filter tabs + details panel driven by URL parameters
 $status = $_GET['status'] ?? 'all';
 if (!in_array($status, ['all', 'confirmed', 'pending'], true)) { $status = 'all'; }
 
@@ -68,7 +63,7 @@ $rightContent = '
     <form method="GET" action="/counselor/" class="dashboard-search-form">' .
     ($status !== 'all' ? '<input type="hidden" name="status" value="' . e($status) . '">' : '') . '
         <div class="dashboard-search-wrapper">
-            <input type="text" name="q" value="' . e($search) . '" placeholder="Search student or appointment..." class="dashboard-search-input">
+            <input type="text" name="q" value="' . e($search) . '" placeholder="Search patients..." class="dashboard-search-input">
             <svg class="dashboard-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
         </div>
         ' . ($search !== '' ? '<a href="/counselor/' . ($status !== 'all' ? '?status=' . e($status) : '') . '" class="btn-sm">Clear</a>' : '') . '
@@ -86,9 +81,35 @@ page_start('counselor', 'Dashboard', '/counselor/', greeting() . ', ' . $fullNam
 ?>
             <?php if ($failed): ?><div class="alert error">Could not load your data. Please refresh.</div><?php endif; ?>
 
+            <!-- Patient Search Pop-up Modal Window -->
             <?php if ($search !== ''): ?>
-                <div class="search-alert">
-                    Showing database search results for: <strong><?php echo e($search); ?></strong> (<a href="/counselor/" style="font-weight: 600;">Reset search</a>)
+                <div class="modal-overlay">
+                    <div class="modal-card">
+                        <div class="modal-header">
+                            <h2>Patient Search Results (<?php echo count($patientResults); ?>)</h2>
+                            <a href="/counselor/<?php echo $status !== 'all' ? '?status=' . e($status) : ''; ?>" class="modal-close-btn" title="Close">&times;</a>
+                        </div>
+                        <div class="modal-body">
+                            <p style="margin-bottom: 14px; font-size: 13.5px; color: var(--muted);">
+                                Showing patient matches for query: <strong><?php echo e($search); ?></strong>
+                            </p>
+                            <?php if (empty($patientResults)): ?>
+                                <p class="empty" style="text-align: center; padding: 24px 0;">No patients found matching "<?php echo e($search); ?>".</p>
+                            <?php else: ?>
+                                <div style="display: flex; flex-direction: column; gap: 10px;">
+                                    <?php foreach ($patientResults as $pat): ?>
+                                        <div class="patient-popup-item">
+                                            <div class="patient-popup-info">
+                                                <strong><?php echo e($pat['full_name']); ?></strong>
+                                                <small><?php echo e($pat['email']); ?> &middot; <?php echo e(ucfirst($pat['patient_type'] ?? 'Student')); ?></small>
+                                            </div>
+                                            <a href="/counselor/record.php?patient_id=<?php echo e($pat['id']); ?>" class="btn-sm">View Record</a>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
                 </div>
             <?php endif; ?>
 
@@ -127,16 +148,16 @@ page_start('counselor', 'Dashboard', '/counselor/', greeting() . ', ' . $fullNam
                         <div class="card-head">
                             <div><h2>All Appointments &amp; Schedule</h2><p class="card-sub">Manage counseling sessions and review statuses</p></div>
                             <div class="tabs">
-                                <a class="tab<?php echo $status === 'all' ? ' active' : ''; ?>" href="/counselor/<?php echo $search !== '' ? '?q=' . urlencode($search) : ''; ?>">All</a>
-                                <a class="tab<?php echo $status === 'confirmed' ? ' active' : ''; ?>" href="/counselor/?status=confirmed<?php echo $search !== '' ? '&amp;q=' . urlencode($search) : ''; ?>">Confirmed</a>
-                                <a class="tab<?php echo $status === 'pending' ? ' active' : ''; ?>" href="/counselor/?status=pending<?php echo $search !== '' ? '&amp;q=' . urlencode($search) : ''; ?>">Pending</a>
+                                <a class="tab<?php echo $status === 'all' ? ' active' : ''; ?>" href="/counselor/">All</a>
+                                <a class="tab<?php echo $status === 'confirmed' ? ' active' : ''; ?>" href="/counselor/?status=confirmed">Confirmed</a>
+                                <a class="tab<?php echo $status === 'pending' ? ' active' : ''; ?>" href="/counselor/?status=pending">Pending</a>
                             </div>
                         </div>
                         <table class="data-table">
                             <thead><tr><th>Date / Time</th><th>Patient / Type</th><th>Topic / Reason</th><th>Status</th><th>Action</th></tr></thead>
                             <tbody>
                             <?php if (!$rows): ?>
-                                <tr><td colspan="5">No appointments found matching your criteria.</td></tr>
+                                <tr><td colspan="5">No appointments found.</td></tr>
                             <?php else: foreach ($rows as $a): $ts = strtotime($a['scheduled_at']); ?>
                                 <tr>
                                     <td>
@@ -148,7 +169,7 @@ page_start('counselor', 'Dashboard', '/counselor/', greeting() . ', ' . $fullNam
                                     <td><strong><?php echo e($a['patient']['full_name'] ?? 'Unknown'); ?></strong><br><small><?php echo e(ucfirst($a['patient']['patient_type'] ?? '-')); ?></small></td>
                                     <td><?php echo e($a['reason'] ?? '-'); ?></td>
                                     <td><?php echo status_badge($a['status']); ?></td>
-                                    <td><a class="btn-sm" href="/counselor/?<?php echo $search !== '' ? 'q=' . urlencode($search) . '&amp;' : ''; ?><?php echo $status !== 'all' ? 'status=' . e($status) . '&amp;' : ''; ?>view=<?php echo e($a['id']); ?>#details">Manage</a></td>
+                                    <td><a class="btn-sm" href="/counselor/?<?php echo $status !== 'all' ? 'status=' . e($status) . '&amp;' : ''; ?>view=<?php echo e($a['id']); ?>#details">Manage</a></td>
                                 </tr>
                             <?php endforeach; endif; ?>
                             </tbody>
