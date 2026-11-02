@@ -5,7 +5,16 @@ require_once __DIR__ . '/../includes/layout.php';
 $me = require_role('admin');
 $token = $me['token'];
 
-$pr = sb_request('GET', 'profiles', 'select=id,full_name,email,role,is_active,created_at&order=created_at.desc&limit=5000', null, $token);
+// Capture search query parameter for filtering profiles from the database
+$search = trim($_GET['q'] ?? '');
+
+$profileQuery = 'select=id,full_name,email,role,is_active,created_at';
+if ($search !== '') {
+    $profileQuery .= '&or=(full_name.ilike.*' . urlencode($search) . '*,email.ilike.*' . urlencode($search) . '*)';
+}
+$profileQuery .= '&order=created_at.desc&limit=5000';
+
+$pr = sb_request('GET', 'profiles', $profileQuery, null, $token);
 $failed = ($pr['status'] !== 200 || !is_array($pr['data']));
 $profiles = $failed ? [] : $pr['data'];
 
@@ -35,9 +44,38 @@ $months = month_buckets(6);
 $apptByMonth = count_by_month($appointments, 'scheduled_at', $months);
 $usersByMonth = count_by_month($profiles, 'created_at', $months);
 
-page_start('admin', 'Dashboard', '/admin/', 'Admin Overview');
+// Prepare admin profile initials for avatar display
+$fullName = $me['profile']['full_name'] ?? 'Administrator';
+$nameParts = explode(' ', $fullName);
+$initials = strtoupper(substr($nameParts[0], 0, 1) . (isset($nameParts[1]) ? substr($nameParts[1], 0, 1) : ''));
+
+// Construct header search bar and profile interactable widgets
+$rightContent = '
+    <form method="GET" action="/admin/" class="header-search-form">
+        <div class="header-search-box">
+            <input type="text" name="q" value="' . e($search) . '" placeholder="Search users by name or email..." class="header-search-input">
+            <svg class="header-search-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        </div>
+        ' . ($search !== '' ? '<a href="/admin/" class="btn-sm">Clear</a>' : '') . '
+    </form>
+    <div class="header-profile-link">
+        <span class="header-profile-avatar">' . e($initials) . '</span>
+        <div class="header-profile-meta">
+            <strong>' . e($fullName) . '</strong>
+            <small>System Administrator</small>
+        </div>
+    </div>
+';
+
+page_start('admin', 'Dashboard', '/admin/', 'Admin Overview', null, $rightContent);
 ?>
             <?php if ($failed): ?><div class="alert error">Could not load users. Please refresh.</div><?php endif; ?>
+
+            <?php if ($search !== ''): ?>
+                <div class="search-alert">
+                    Showing database search results for user query: <strong><?php echo e($search); ?></strong> (<a href="/admin/" style="font-weight: 600;">Reset search</a>)
+                </div>
+            <?php endif; ?>
 
             <div class="stats">
                 <?php echo stat_card('Total users', count($profiles), $roleCounts['patient'] . ' patients', 'users'); ?>
@@ -65,7 +103,7 @@ page_start('admin', 'Dashboard', '/admin/', 'Admin Overview');
                         <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Joined</th></tr></thead>
                         <tbody>
                         <?php if (!$profiles): ?>
-                            <tr><td colspan="5">No users found.</td></tr>
+                            <tr><td colspan="5">No users found matching your search.</td></tr>
                         <?php else: foreach (array_slice($profiles, 0, 6) as $p): $active = ($p['is_active'] ?? true) !== false; ?>
                             <tr>
                                 <td><strong><?php echo e($p['full_name'] ?? '-'); ?></strong></td>
