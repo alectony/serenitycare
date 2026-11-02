@@ -1,10 +1,3 @@
-The layout appeared broken because the CSS class names used in the PHP file (`header-search-input`, `profile-interactable`, etc.) did not match the class names defined in your stylesheet (`dashboard-search-input`, `profile-interactable`, etc.), causing the browser to render them unstyled and the search icon to blow up to its full native size.
-
-Here is the corrected **`admin/index.php`** using the exact matching stylesheet class names:
-
-### Updated `admin/index.php`
-
-```php
 <?php
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/layout.php';
@@ -12,18 +5,26 @@ require_once __DIR__ . '/../includes/layout.php';
 $me = require_role('admin');
 $token = $me['token'];
 
-// Capture search query parameter for filtering profiles from the database
+// Capture search query parameter
 $search = trim($_GET['q'] ?? '');
 
-$profileQuery = 'select=id,full_name,email,role,is_active,created_at';
-if ($search !== '') {
-    $profileQuery .= '&or=(full_name.ilike.*' . urlencode($search) . '*,email.ilike.*' . urlencode($search) . '*)';
-}
-$profileQuery .= '&order=created_at.desc&limit=5000';
-
+// General profile query for dashboard stats/recent users
+$profileQuery = 'select=id,full_name,email,role,is_active,created_at&order=created_at.desc&limit=5000';
 $pr = sb_request('GET', 'profiles', $profileQuery, null, $token);
 $failed = ($pr['status'] !== 200 || !is_array($pr['data']));
 $profiles = $failed ? [] : $pr['data'];
+
+// Patient search query for the popup modal
+$patientResults = [];
+if ($search !== '') {
+    $patientQuery = 'select=id,full_name,email,patient_type,grade_or_dept,created_at,role&role=eq.patient'
+        . '&or=(full_name.ilike.*' . urlencode($search) . '*,email.ilike.*' . urlencode($search) . '*)'
+        . '&order=full_name.asc';
+    $pRes = sb_request('GET', 'profiles', $patientQuery, null, $token);
+    if ($pRes['status'] === 200 && is_array($pRes['data'])) {
+        $patientResults = $pRes['data'];
+    }
+}
 
 $ar = sb_request('GET', 'appointments', 'select=id,status,scheduled_at&limit=5000', null, $token);
 $appointments = ($ar['status'] === 200 && is_array($ar['data'])) ? $ar['data'] : [];
@@ -56,11 +57,11 @@ $fullName = $me['profile']['full_name'] ?? 'Administrator';
 $nameParts = explode(' ', $fullName);
 $initials = strtoupper(substr($nameParts[0], 0, 1) . (isset($nameParts[1]) ? substr($nameParts[1], 0, 1) : ''));
 
-// Construct header search bar and profile interactable widgets using matching stylesheet classes
+// Construct header search bar and profile interactable widgets
 $rightContent = '
     <form method="GET" action="/admin/" class="dashboard-search-form">
         <div class="dashboard-search-wrapper">
-            <input type="text" name="q" value="' . e($search) . '" placeholder="Search users by name or email..." class="dashboard-search-input">
+            <input type="text" name="q" value="' . e($search) . '" placeholder="Search patients by name..." class="dashboard-search-input">
             <svg class="dashboard-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
         </div>
         ' . ($search !== '' ? '<a href="/admin/" class="btn-sm">Clear</a>' : '') . '
@@ -78,9 +79,35 @@ page_start('admin', 'Dashboard', '/admin/', 'Admin Overview', null, $rightConten
 ?>
             <?php if ($failed): ?><div class="alert error">Could not load users. Please refresh.</div><?php endif; ?>
 
+            <!-- Patient Search Results Pop-up Modal Window -->
             <?php if ($search !== ''): ?>
-                <div class="search-alert">
-                    Showing database search results for user query: <strong><?php echo e($search); ?></strong> (<a href="/admin/" style="font-weight: 600;">Reset search</a>)
+                <div class="modal-overlay">
+                    <div class="modal-card">
+                        <div class="modal-header">
+                            <h2>Patient Search Results (<?php echo count($patientResults); ?>)</h2>
+                            <a href="/admin/" class="modal-close-btn" title="Close">&times;</a>
+                        </div>
+                        <div class="modal-body">
+                            <p style="margin-bottom: 14px; font-size: 13.5px; color: var(--muted);">
+                                Showing patient matches for query: <strong><?php echo e($search); ?></strong>
+                            </p>
+                            <?php if (empty($patientResults)): ?>
+                                <p class="empty" style="text-align: center; padding: 24px 0;">No patients found matching "<?php echo e($search); ?>".</p>
+                            <?php else: ?>
+                                <div style="display: flex; flex-direction: column; gap: 10px;">
+                                    <?php foreach ($patientResults as $pat): ?>
+                                        <div class="patient-popup-item">
+                                            <div class="patient-popup-info">
+                                                <strong><?php echo e($pat['full_name']); ?></strong>
+                                                <small><?php echo e($pat['email']); ?> &middot; <?php echo e(ucfirst($pat['patient_type'] ?? 'Student')); ?></small>
+                                            </div>
+                                            <?php echo status_badge($pat['role']); ?>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
                 </div>
             <?php endif; ?>
 
@@ -110,7 +137,7 @@ page_start('admin', 'Dashboard', '/admin/', 'Admin Overview', null, $rightConten
                         <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Joined</th></tr></thead>
                         <tbody>
                         <?php if (!$profiles): ?>
-                            <tr><td colspan="5">No users found matching your search.</td></tr>
+                            <tr><td colspan="5">No users found.</td></tr>
                         <?php else: foreach (array_slice($profiles, 0, 6) as $p): $active = ($p['is_active'] ?? true) !== false; ?>
                             <tr>
                                 <td><strong><?php echo e($p['full_name'] ?? '-'); ?></strong></td>
@@ -147,5 +174,3 @@ page_start('admin', 'Dashboard', '/admin/', 'Admin Overview', null, $rightConten
                 </div>
             </div>
 <?php page_end(); ?>
-
-```
