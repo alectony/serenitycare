@@ -9,6 +9,10 @@ $token = $me['token'];
 // Capture search query parameter
 $search = trim($_GET['q'] ?? '');
 
+// Filter tabs + details panel driven by URL parameters
+$status = $_GET['status'] ?? 'all';
+if (!in_array($status, ['all', 'confirmed', 'pending'], true)) { $status = 'all'; }
+
 // Build query parameters for Supabase appointments (maintaining dashboard data context)
 $queryParams = 'select=id,patient_id,scheduled_at,status,reason,patient:profiles!patient_id(full_name,patient_type)'
     . '&counselor_id=eq.' . urlencode($uid) . '&order=scheduled_at.desc';
@@ -17,7 +21,7 @@ $res = sb_request('GET', 'appointments', $queryParams, null, $token);
 $failed = ($res['status'] !== 200 || !is_array($res['data']));
 $all = $failed ? [] : $res['data'];
 
-// Patient search query for the modal popup matching the admin dashboard pattern
+// Direct patient profile search for the pop-up modal window (matching admin feature)
 $patientResults = [];
 if ($search !== '') {
     $patientQuery = 'select=id,full_name,email,patient_type,grade_or_dept,created_at,role&role=eq.patient'
@@ -33,10 +37,6 @@ $dx = sb_request('GET', 'diagnoses',
     'select=diagnosis,shared_with_patient,created_at,patient:profiles!patient_id(full_name)'
     . '&counselor_id=eq.' . urlencode($uid) . '&order=created_at.desc&limit=3', null, $token);
 $records = ($dx['status'] === 200 && is_array($dx['data'])) ? $dx['data'] : [];
-
-// Filter tabs + details panel driven by URL parameters
-$status = $_GET['status'] ?? 'all';
-if (!in_array($status, ['all', 'confirmed', 'pending'], true)) { $status = 'all'; }
 
 $detail = null;
 $viewId = $_GET['view'] ?? '';
@@ -58,14 +58,15 @@ $fullName = $me['profile']['full_name'] ?? 'Ms. Elena Reyes';
 $nameParts = explode(' ', $fullName);
 $initials = strtoupper(substr($nameParts[0], 0, 1) . (isset($nameParts[1]) ? substr($nameParts[1], 0, 1) : ''));
 
-// Construct top-bar right content using identical layout and classes to the admin dashboard
+// Construct top-bar right content matching admin layout structures exactly
 $rightContent = '
-    <form method="GET" action="/counselor/" class="dashboard-search-form">
+    <form method="GET" action="/counselor/" class="dashboard-search-form">' .
+    ($status !== 'all' ? '<input type="hidden" name="status" value="' . e($status) . '">' : '') . '
         <div class="dashboard-search-wrapper">
             <input type="text" name="q" value="' . e($search) . '" placeholder="Search patients by name..." class="dashboard-search-input">
             <svg class="dashboard-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
         </div>
-        ' . ($search !== '' ? '<a href="/counselor/" class="btn-sm">Clear</a>' : '') . '
+        ' . ($search !== '' ? '<a href="/counselor/' . ($status !== 'all' ? '?status=' . e($status) : '') . '" class="btn-sm">Clear</a>' : '') . '
     </form>
     <div class="profile-interactable">
         <span class="profile-avatar">' . e($initials) . '</span>
@@ -86,7 +87,7 @@ page_start('counselor', 'Dashboard', '/counselor/', greeting() . ', ' . $fullNam
                     <div class="modal-card">
                         <div class="modal-header">
                             <h2>Patient Search Results (<?php echo count($patientResults); ?>)</h2>
-                            <a href="/counselor/" class="modal-close-btn" title="Close">&times;</a>
+                            <a href="/counselor/<?php echo $status !== 'all' ? '?status=' . e($status) : ''; ?>" class="modal-close-btn" title="Close">&times;</a>
                         </div>
                         <div class="modal-body">
                             <p style="margin-bottom: 14px; font-size: 13.5px; color: var(--muted);">
