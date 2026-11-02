@@ -1,6 +1,110 @@
 /* SerenityCare - one stylesheet for login, register and all dashboards */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Newsreader:wght@500;600&display=swap');
 
+/* ---------- Dashboard Header with Search & Profile ---------- */
+.top-bar-flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.top-bar-left {
+  flex: 1;
+  min-width: 260px;
+}
+.top-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.dashboard-search-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.dashboard-search-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.dashboard-search-input {
+  padding-left: 36px;
+  width: 240px;
+  height: 38px;
+  border-radius: 999px;
+  border: 1px solid #D8D1C3;
+  font-size: 13px;
+  font-family: var(--sans);
+  color: var(--ink);
+  background: #fff;
+}
+.dashboard-search-input:focus {
+  outline: none;
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px var(--green-soft);
+}
+.dashboard-search-icon {
+  position: absolute;
+  left: 12px;
+  width: 16px;
+  height: 16px;
+  color: var(--muted);
+  pointer-events: none;
+}
+.profile-interactable {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: inherit;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  padding: 6px 14px 6px 8px;
+  border-radius: 999px;
+  transition: background 0.2s ease;
+}
+.profile-interactable:hover {
+  background: #F4F1EA;
+}
+.profile-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--green-dark);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.profile-info {
+  text-align: left;
+  line-height: 1.2;
+}
+.profile-info strong {
+  display: block;
+  font-size: 13px;
+  color: var(--ink);
+}
+.profile-info small {
+  font-size: 11px;
+  color: var(--muted);
+}
+.search-alert {
+  background: var(--green-soft);
+  color: var(--green-dark);
+  border: 1px solid #C3DFCB;
+  padding: 10px 14px;
+  border-radius: 10px;
+  margin-bottom: 14px;
+  font-size: 14px;
+}
+
 :root {
   --bg: #F3EEE6;
   --surface: #FFFFFF;

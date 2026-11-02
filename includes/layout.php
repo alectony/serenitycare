@@ -117,8 +117,7 @@ function nav_for($role) {
     ];
     return $nav[$role] ?? [];
 }
-
-function page_start($role, $title, $current, $heading = null, $subtitle = null) {
+function page_start($role, $title, $current, $heading = null, $subtitle = null, $rightContent = null) {
     csrf_token();   // must run before any output (it may set a cookie)
     $labels = ['counselor' => 'COUNSELOR PORTAL', 'patient' => 'PATIENT PORTAL', 'admin' => 'ADMIN PORTAL'];
     $subs = [
@@ -152,9 +151,16 @@ function page_start($role, $title, $current, $heading = null, $subtitle = null) 
             <div class="sidebar-footer"><a href="/logout.php" class="logout-btn"><?php echo icon('logout'); ?><span>Log out</span></a></div>
         </aside>
         <main class="main-content">
-            <header class="top-bar">
-                <h1><?php echo e($heading); ?></h1>
-                <?php if ($subtitle !== ''): ?><p class="subtitle"><?php echo e($subtitle); ?></p><?php endif; ?>
+            <header class="top-bar top-bar-flex">
+                <div class="top-bar-left">
+                    <h1><?php echo e($heading); ?></h1>
+                    <?php if ($subtitle !== ''): ?><p class="subtitle"><?php echo e($subtitle); ?></p><?php endif; ?>
+                </div>
+                <?php if ($rightContent !== null): ?>
+                    <div class="top-bar-right">
+                        <?php echo $rightContent; ?>
+                    </div>
+                <?php endif; ?>
             </header>
 <?php
 }
