@@ -1,10 +1,3 @@
-The layout appeared broken because the CSS class names used in the PHP file (`header-search-input`, `profile-interactable`, etc.) did not match the class names defined in your stylesheet (`dashboard-search-input`, `profile-interactable`, etc.), causing the browser to render them unstyled and the search icon to blow up to its full native size.
-
-Here is the corrected **`admin/index.php`** using the exact matching stylesheet class names:
-
-### Updated `admin/index.php`
-
-```php
 <?php
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/layout.php';
@@ -56,7 +49,7 @@ $fullName = $me['profile']['full_name'] ?? 'Administrator';
 $nameParts = explode(' ', $fullName);
 $initials = strtoupper(substr($nameParts[0], 0, 1) . (isset($nameParts[1]) ? substr($nameParts[1], 0, 1) : ''));
 
-// Construct header search bar and profile interactable widgets using matching stylesheet classes
+// Construct header search bar and profile interactable widgets
 $rightContent = '
     <form method="GET" action="/admin/" class="dashboard-search-form">
         <div class="dashboard-search-wrapper">
@@ -147,5 +140,3 @@ page_start('admin', 'Dashboard', '/admin/', 'Admin Overview', null, $rightConten
                 </div>
             </div>
 <?php page_end(); ?>
-
-```
