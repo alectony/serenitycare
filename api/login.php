@@ -1,7 +1,11 @@
 <?php
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/audit.php';
 
 $error = '';
+if (isset($_GET['inactive'])) {
+    $error = 'This account has been deactivated. Please contact an administrator.';
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = trim($_POST['email'] ?? '');
@@ -15,20 +19,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (isset($auth['access_token'])) {
             $token = $auth['access_token'];
             $userId = $auth['user']['id'];
-
-            setcookie('supabase_token', $token, [
-                'expires' => time() + 3600,   // Supabase tokens last 1 hour by default
-                'path' => '/',
-                'secure' => is_https(),
-                'httponly' => true,
-                'samesite' => 'Lax',
-            ]);
-
             $profile = get_user_profile($userId, $token);
-            header('Location: ' . home_for_role($profile['role'] ?? 'patient'));
-            exit;
+
+            if (($profile['is_active'] ?? true) === false) {
+                $error = 'This account has been deactivated. Please contact an administrator.';
+            } else {
+                setcookie('supabase_token', $token, [
+                    'expires' => time() + 3600,   // Supabase tokens last 1 hour by default
+                    'path' => '/',
+                    'secure' => is_https(),
+                    'httponly' => true,
+                    'samesite' => 'Lax',
+                ]);
+                audit_log($token, $userId, $profile['full_name'] ?? '', 'login');
+                header('Location: ' . home_for_role($profile['role'] ?? 'patient'));
+                exit;
+            }
+        } else {
+            $error = $auth['message'] ?? 'Invalid email or password.';
         }
-        $error = $auth['message'] ?? 'Invalid email or password.';
     }
 }
 ?>

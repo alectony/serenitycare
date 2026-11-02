@@ -1,4 +1,11 @@
 <?php
+// Some PHP builds (incl. minimal serverless ones) ship without the mbstring extension.
+if (!function_exists('mb_substr')) {
+    function mb_substr($string, $start, $length = null, $encoding = null) {
+        return $length === null ? substr((string) $string, $start) : substr((string) $string, $start, $length);
+    }
+}
+
 function load_env($path) {
     if (!file_exists($path)) {
         return;
@@ -155,4 +162,46 @@ function sb_service_get_role($userId) {
     ]);
     return ($r['status'] === 200 && !empty($r['data'][0]['role'])) ? $r['data'][0]['role'] : null;
 }
-?>
+
+function sb_service_key() {
+    return (string) (getenv('SUPABASE_SERVICE_ROLE_KEY') ?: ($_ENV['SUPABASE_SERVICE_ROLE_KEY'] ?? ''));
+}
+
+/** Server-side only: create a confirmed auth user (admin "Add user"). Returns ['id' => ...] or ['error' => ...]. */
+function sb_service_create_user($email, $password, $fullName, array $meta = []) {
+    $key = sb_service_key();
+    if ($key === '') {
+        return ['error' => 'SUPABASE_SERVICE_ROLE_KEY is not set on the server.'];
+    }
+    $c = get_supabase_config();
+    $r = sb_http('POST', $c['url'] . '/auth/v1/admin/users', [
+        'apikey: ' . $key,
+        'Authorization: Bearer ' . $key,
+        'Content-Type: application/json',
+    ], [
+        'email' => $email,
+        'password' => $password,
+        'email_confirm' => true,
+        'user_metadata' => array_merge(['full_name' => $fullName], $meta),
+    ]);
+    if ($r['status'] >= 200 && $r['status'] < 300 && !empty($r['data']['id'])) {
+        return ['id' => $r['data']['id']];
+    }
+    $msg = is_array($r['data']) ? ($r['data']['msg'] ?? $r['data']['message'] ?? $r['data']['error_description'] ?? 'Could not create the account.') : 'Could not create the account.';
+    return ['error' => $msg];
+}
+
+/** Server-side only: block (or unblock) sign-in for an auth user. Best effort. */
+function sb_service_set_ban($userId, $banned) {
+    $key = sb_service_key();
+    if ($key === '') {
+        return false;
+    }
+    $c = get_supabase_config();
+    $r = sb_http('PUT', $c['url'] . '/auth/v1/admin/users/' . urlencode($userId), [
+        'apikey: ' . $key,
+        'Authorization: Bearer ' . $key,
+        'Content-Type: application/json',
+    ], ['ban_duration' => $banned ? '876000h' : 'none']);
+    return $r['status'] >= 200 && $r['status'] < 300;
+}?>

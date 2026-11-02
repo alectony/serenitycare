@@ -37,6 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($n['status'] === 201 && $d['status'] === 201) {
             $msg = 'Patient record saved successfully.';
+            audit_from($me, 'record_saved', 'patient', $patientId, $shared ? 'Diagnosis shared with patient' : 'Diagnosis kept private');
         } else {
             $err = 'Could not save the record. Please try again.';
         }
@@ -88,4 +89,4 @@ page_start('counselor', 'Patient Records', '/counselor/record.php', 'Session Not
                     <button type="submit" class="btn">Save record</button>
                 </form>
             </div>
-<?php page_end(); ?>
+<?php page_end();?>

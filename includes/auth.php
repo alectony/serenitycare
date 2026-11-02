@@ -29,26 +29,11 @@ function require_login() {
 }
 
 function get_user_profile($user_id, $token) {
-    $response = sb_request('GET', 'profiles', 'id=eq.' . $user_id, null, $token);
-    
-    // Check both potential response structures from sb_request
-    $profile = $response[0] ?? ($response['data'][0] ?? null);
-    if (!empty($profile) && isset($profile['role'])) {
-        return $profile;
+    $r = sb_request('GET', 'profiles', 'id=eq.' . urlencode($user_id), null, $token);
+    if ($r['status'] === 200 && !empty($r['data'][0])) {
+        return $r['data'][0];
     }
-
-    // Fallback auto-create profile if missing (defaults to patient)
-    $defaultProfile = [
-        'full_name' => 'User',
-        'role' => 'patient',
-        'is_active' => true
-    ];
-    
-    sb_service_upsert_profile($user_id, $defaultProfile);
-    
-    // Refetch the created profile
-    $response = sb_request('GET', 'profiles', 'id=eq.' . $user_id, null, $token);
-    return $response[0] ?? ($response['data'][0] ?? array_merge(['id' => $user_id], $defaultProfile));
+    return null;
 }
 
 function home_for_role($role) {
@@ -73,6 +58,12 @@ function require_role($roles) {
     }
 
     $profile = get_user_profile($user['id'], $token);
+
+    if (($profile['is_active'] ?? true) === false) {   // deactivated by an admin
+        clear_token_cookie();
+        header('Location: /login.php?inactive=1');
+        exit;
+    }
     $role = $profile['role'] ?? 'patient';
 
     if (!in_array($role, (array) $roles, true)) {
@@ -80,5 +71,4 @@ function require_role($roles) {
         exit;
     }
     return ['token' => $token, 'user' => $user, 'profile' => $profile, 'role' => $role];
-}
-?>
+}?>

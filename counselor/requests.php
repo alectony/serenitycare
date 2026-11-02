@@ -14,6 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         sb_request('PATCH', 'appointments',
             'id=eq.' . urlencode($id) . '&counselor_id=eq.' . urlencode($uid) . '&status=eq.pending',
             ['status' => $status], $me['token']);
+        audit_from($me, $action === 'approve' ? 'appointment_confirmed' : 'appointment_declined', 'appointment', $id);
     }
     header('Location: /counselor/requests.php');
     exit;
@@ -54,4 +55,4 @@ page_start('counselor', 'Appointment Requests', '/counselor/requests.php', 'Pend
                     </div>
                 <?php endif; ?>
             </div>
-<?php page_end(); ?>
+<?php page_end();?>
