@@ -17,7 +17,7 @@ $res = sb_request('GET', 'appointments', $queryParams, null, $token);
 $failed = ($res['status'] !== 200 || !is_array($res['data']));
 $all = $failed ? [] : $res['data'];
 
-// Direct patient profile search for the pop-up modal window
+// Patient search query for the modal popup matching the admin dashboard pattern
 $patientResults = [];
 if ($search !== '') {
     $patientQuery = 'select=id,full_name,email,patient_type,grade_or_dept,created_at,role&role=eq.patient'
@@ -58,36 +58,35 @@ $fullName = $me['profile']['full_name'] ?? 'Ms. Elena Reyes';
 $nameParts = explode(' ', $fullName);
 $initials = strtoupper(substr($nameParts[0], 0, 1) . (isset($nameParts[1]) ? substr($nameParts[1], 0, 1) : ''));
 
-// Construct top-bar right content (Search bar + Profile interactable)
+// Construct top-bar right content using identical layout and classes to the admin dashboard
 $rightContent = '
-    <form method="GET" action="/counselor/" class="dashboard-search-form">' .
-    ($status !== 'all' ? '<input type="hidden" name="status" value="' . e($status) . '">' : '') . '
+    <form method="GET" action="/counselor/" class="dashboard-search-form">
         <div class="dashboard-search-wrapper">
-            <input type="text" name="q" value="' . e($search) . '" placeholder="Search patients..." class="dashboard-search-input">
+            <input type="text" name="q" value="' . e($search) . '" placeholder="Search patients by name..." class="dashboard-search-input">
             <svg class="dashboard-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
         </div>
-        ' . ($search !== '' ? '<a href="/counselor/' . ($status !== 'all' ? '?status=' . e($status) : '') . '" class="btn-sm">Clear</a>' : '') . '
+        ' . ($search !== '' ? '<a href="/counselor/" class="btn-sm">Clear</a>' : '') . '
     </form>
-    <a href="/counselor/profile.php" class="profile-interactable">
+    <div class="profile-interactable">
         <span class="profile-avatar">' . e($initials) . '</span>
         <div class="profile-info">
             <strong>' . e($fullName) . '</strong>
             <small>Guidance Counselor</small>
         </div>
-    </a>
+    </div>
 ';
 
 page_start('counselor', 'Dashboard', '/counselor/', greeting() . ', ' . $fullName, 'Here is a summary of your counseling care and upcoming student sessions.', $rightContent);
 ?>
             <?php if ($failed): ?><div class="alert error">Could not load your data. Please refresh.</div><?php endif; ?>
 
-            <!-- Patient Search Pop-up Modal Window -->
+            <!-- Patient Search Results Pop-up Modal Window -->
             <?php if ($search !== ''): ?>
                 <div class="modal-overlay">
                     <div class="modal-card">
                         <div class="modal-header">
                             <h2>Patient Search Results (<?php echo count($patientResults); ?>)</h2>
-                            <a href="/counselor/<?php echo $status !== 'all' ? '?status=' . e($status) : ''; ?>" class="modal-close-btn" title="Close">&times;</a>
+                            <a href="/counselor/" class="modal-close-btn" title="Close">&times;</a>
                         </div>
                         <div class="modal-body">
                             <p style="margin-bottom: 14px; font-size: 13.5px; color: var(--muted);">
