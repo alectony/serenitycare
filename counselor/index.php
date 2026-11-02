@@ -39,10 +39,6 @@ $dx = sb_request('GET', 'diagnoses',
     . '&counselor_id=eq.' . urlencode($uid) . '&order=created_at.desc&limit=3', null, $token);
 $records = ($dx['status'] === 200 && is_array($dx['data'])) ? $dx['data'] : [];
 
-// Has an admin verified this counselor yet? (patients can only book verified counselors)
-$vr = sb_request('GET', 'counselor_verifications', 'select=status,note&counselor_id=eq.' . urlencode($uid), null, $token);
-$verification = ($vr['status'] === 200 && !empty($vr['data'][0])) ? $vr['data'][0] : ['status' => 'pending', 'note' => ''];
-
 // Filter tabs + details panel are driven by the URL (?status=pending&view=<id>), no JavaScript.
 $status = $_GET['status'] ?? 'all';
 if (!in_array($status, ['all', 'confirmed', 'pending'], true)) { $status = 'all'; }
@@ -89,13 +85,6 @@ $rightContent = '
 page_start('counselor', 'Dashboard', '/counselor/', greeting() . ', ' . $fullName, 'Here is a summary of your counseling care and upcoming student sessions.', $rightContent);
 ?>
             <?php if ($failed): ?><div class="alert error">Could not load your data. Please refresh.</div><?php endif; ?>
-            <?php if ($verification['status'] !== 'verified'): ?>
-                <div class="alert error">
-                    <?php echo $verification['status'] === 'rejected' ? 'Your verification was not approved.' : 'Your account is waiting for admin verification.'; ?>
-                    Patients cannot book you until you are verified.<?php if (!empty($verification['note'])): ?> Note from admin: <?php echo e($verification['note']); ?><?php endif; ?>
-                    Make sure your <a href="/counselor/profile.php">license number</a> is filled in.
-                </div>
-            <?php endif; ?>
 
             <?php if ($search !== ''): ?>
                 <div class="search-alert">
