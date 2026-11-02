@@ -2,28 +2,19 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/layout.php';
 
-$me = require_role('counselor');
-$uid = $me['user']['id'];
+$me = require_role('admin');
 $token = $me['token'];
 
 // Capture search query parameter
 $search = trim($_GET['q'] ?? '');
 
-// Build query parameters for Supabase appointments
-$queryParams = 'select=id,patient_id,scheduled_at,status,reason,patient:profiles!patient_id(full_name,patient_type)'
-    . '&counselor_id=eq.' . urlencode($uid);
+// General profile query for dashboard stats/recent users
+$profileQuery = 'select=id,full_name,email,role,is_active,created_at&order=created_at.desc&limit=5000';
+$pr = sb_request('GET', 'profiles', $profileQuery, null, $token);
+$failed = ($pr['status'] !== 200 || !is_array($pr['data']));
+$profiles = $failed ? [] : $pr['data'];
 
-if ($search !== '') {
-    $queryParams .= '&or=(reason.ilike.*' . urlencode($search) . '*)';
-}
-
-$queryParams .= '&order=scheduled_at.desc';
-
-$res = sb_request('GET', 'appointments', $queryParams, null, $token);
-$failed = ($res['status'] !== 200 || !is_array($res['data']));
-$all = $failed ? [] : $res['data'];
-
-// Patient search query for the modal popup looking up patients assigned or general profiles
+// Patient search query for the popup modal
 $patientResults = [];
 if ($search !== '') {
     $patientQuery = 'select=id,full_name,email,patient_type,grade_or_dept,created_at,role&role=eq.patient'
@@ -35,68 +26,58 @@ if ($search !== '') {
     }
 }
 
-// Secondary filter in PHP for patient name matching when searching across relations
-if ($search !== '' && !empty($all)) {
-    $searchLower = strtolower($search);
-    $all = array_filter($all, function($a) use ($searchLower) {
-        $reasonMatch = isset($a['reason']) && strpos(strtolower($a['reason']), $searchLower) !== false;
-        $nameMatch = isset($a['patient']['full_name']) && strpos(strtolower($a['patient']['full_name']), $searchLower) !== false;
-        return $reasonMatch || $nameMatch;
-    });
-    $all = array_values($all);
+$ar = sb_request('GET', 'appointments', 'select=id,status,scheduled_at&limit=5000', null, $token);
+$appointments = ($ar['status'] === 200 && is_array($ar['data'])) ? $ar['data'] : [];
+
+$vr = sb_request('GET', 'counselor_verifications', 'select=counselor_id,status', null, $token);
+$verif = [];
+if ($vr['status'] === 200 && is_array($vr['data'])) { foreach ($vr['data'] as $v) { $verif[$v['counselor_id']] = $v['status']; } }
+
+$lr = sb_request('GET', 'audit_logs', 'select=created_at,actor_name,action,detail&order=created_at.desc&limit=5', null, $token);
+$logs = ($lr['status'] === 200 && is_array($lr['data'])) ? $lr['data'] : [];
+
+$roleCounts = ['patient' => 0, 'counselor' => 0, 'admin' => 0];
+$counselorIds = [];
+foreach ($profiles as $p) {
+    if (isset($roleCounts[$p['role']])) { $roleCounts[$p['role']]++; }
+    if ($p['role'] === 'counselor') { $counselorIds[] = $p['id']; }
 }
+$pendingVerify = count(array_filter($counselorIds, fn($id) => ($verif[$id] ?? 'pending') === 'pending'));
+$verifiedCount = count(array_filter($counselorIds, fn($id) => ($verif[$id] ?? '') === 'verified'));
 
-$dx = sb_request('GET', 'diagnoses',
-    'select=diagnosis,shared_with_patient,created_at,patient:profiles!patient_id(full_name)'
-    . '&counselor_id=eq.' . urlencode($uid) . '&order=created_at.desc&limit=3', null, $token);
-$records = ($dx['status'] === 200 && is_array($dx['data'])) ? $dx['data'] : [];
+$statusCounts = array_fill_keys(['pending', 'confirmed', 'completed', 'declined', 'cancelled'], 0);
+foreach ($appointments as $a) { if (isset($statusCounts[$a['status']])) { $statusCounts[$a['status']]++; } }
 
-// Filter tabs + details panel are driven by the URL (?status=pending&view=<id>), no JavaScript.
-$status = $_GET['status'] ?? 'all';
-if (!in_array($status, ['all', 'confirmed', 'pending'], true)) { $status = 'all'; }
+$months = month_buckets(6);
+$apptByMonth = count_by_month($appointments, 'scheduled_at', $months);
+$usersByMonth = count_by_month($profiles, 'created_at', $months);
 
-$detail = null;
-$viewId = $_GET['view'] ?? '';
-if (is_uuid($viewId)) {
-    foreach ($all as $a) { if ($a['id'] === $viewId) { $detail = $a; break; } }
-}
-
-$rows = $status === 'all' ? $all : array_values(array_filter($all, fn($a) => $a['status'] === $status));
-$rows = array_slice($rows, 0, 25);
-
-$today = date('Y-m-d');
-$todayCount = count(array_filter($all, fn($a) =>
-    date('Y-m-d', strtotime($a['scheduled_at'])) === $today && in_array($a['status'], ['pending', 'confirmed', 'completed'], true)));
-$pendingCount = count(array_filter($all, fn($a) => $a['status'] === 'pending'));
-$patientCount = count(array_unique(array_column($all, 'patient_id')));
-
-// Prepare counselor profile initials for avatar display
-$fullName = $me['profile']['full_name'] ?? 'Ms. Elena Reyes';
+// Prepare admin profile initials for avatar display
+$fullName = $me['profile']['full_name'] ?? 'Administrator';
 $nameParts = explode(' ', $fullName);
 $initials = strtoupper(substr($nameParts[0], 0, 1) . (isset($nameParts[1]) ? substr($nameParts[1], 0, 1) : ''));
 
-// Construct top-bar right content (Search bar + Profile interactable)
+// Construct header search bar and profile interactable widgets
 $rightContent = '
-    <form method="GET" action="/counselor/" class="dashboard-search-form">' .
-    ($status !== 'all' ? '<input type="hidden" name="status" value="' . e($status) . '">' : '') . '
+    <form method="GET" action="/admin/" class="dashboard-search-form">
         <div class="dashboard-search-wrapper">
-            <input type="text" name="q" value="' . e($search) . '" placeholder="Search patients..." class="dashboard-search-input">
+            <input type="text" name="q" value="' . e($search) . '" placeholder="Search patients by name..." class="dashboard-search-input">
             <svg class="dashboard-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
         </div>
-        ' . ($search !== '' ? '<a href="/counselor/' . ($status !== 'all' ? '?status=' . e($status) : '') . '" class="btn-sm">Clear</a>' : '') . '
+        ' . ($search !== '' ? '<a href="/admin/" class="btn-sm">Clear</a>' : '') . '
     </form>
-    <a href="/counselor/profile.php" class="profile-interactable">
+    <div class="profile-interactable">
         <span class="profile-avatar">' . e($initials) . '</span>
         <div class="profile-info">
             <strong>' . e($fullName) . '</strong>
-            <small>Guidance Counselor</small>
+            <small>System Administrator</small>
         </div>
-    </a>
+    </div>
 ';
 
-page_start('counselor', 'Dashboard', '/counselor/', greeting() . ', ' . $fullName, 'Here is a summary of your counseling care and upcoming student sessions.', $rightContent);
+page_start('admin', 'Dashboard', '/admin/', 'Admin Overview', null, $rightContent);
 ?>
-            <?php if ($failed): ?><div class="alert error">Could not load your data. Please refresh.</div><?php endif; ?>
+            <?php if ($failed): ?><div class="alert error">Could not load users. Please refresh.</div><?php endif; ?>
 
             <!-- Patient Search Results Pop-up Modal Window -->
             <?php if ($search !== ''): ?>
@@ -104,7 +85,7 @@ page_start('counselor', 'Dashboard', '/counselor/', greeting() . ', ' . $fullNam
                     <div class="modal-card">
                         <div class="modal-header">
                             <h2>Patient Search Results (<?php echo count($patientResults); ?>)</h2>
-                            <a href="/counselor/<?php echo $status !== 'all' ? '?status=' . e($status) : ''; ?>" class="modal-close-btn" title="Close">&times;</a>
+                            <a href="/admin/" class="modal-close-btn" title="Close">&times;</a>
                         </div>
                         <div class="modal-body">
                             <p style="margin-bottom: 14px; font-size: 13.5px; color: var(--muted);">
@@ -120,7 +101,7 @@ page_start('counselor', 'Dashboard', '/counselor/', greeting() . ', ' . $fullNam
                                                 <strong><?php echo e($pat['full_name']); ?></strong>
                                                 <small><?php echo e($pat['email']); ?> &middot; <?php echo e(ucfirst($pat['patient_type'] ?? 'Student')); ?></small>
                                             </div>
-                                            <a href="/counselor/record.php?patient_id=<?php echo e($pat['id']); ?>" class="btn-sm">View Record</a>
+                                            <?php echo status_badge($pat['role']); ?>
                                         </div>
                                     <?php endforeach; ?>
                                 </div>
@@ -131,86 +112,64 @@ page_start('counselor', 'Dashboard', '/counselor/', greeting() . ', ' . $fullNam
             <?php endif; ?>
 
             <div class="stats">
-                <?php echo stat_card("Today's sessions", $todayCount, 'Scheduled for today', 'calendar'); ?>
-                <?php echo stat_card('Pending requests', $pendingCount, 'Awaiting your review', 'clock'); ?>
-                <?php echo stat_card('Active patients', $patientCount, 'Students & staff', 'users'); ?>
+                <?php echo stat_card('Total users', count($profiles), $roleCounts['patient'] . ' patients', 'users'); ?>
+                <?php echo stat_card('Counselors', $roleCounts['counselor'], $verifiedCount . ' verified', 'user'); ?>
+                <?php echo stat_card('Appointments', count($appointments), $statusCounts['pending'] . ' pending', 'calendar'); ?>
+                <?php echo stat_card('Awaiting verification', $pendingVerify, 'Counselors to review', 'shield'); ?>
+            </div>
+
+            <?php if ($pendingVerify > 0): ?>
+                <div class="cta spaced">
+                    <div><h3><?php echo (int) $pendingVerify; ?> counselor<?php echo $pendingVerify === 1 ? '' : 's'; ?> waiting for verification</h3><p>Patients cannot book a counselor until you verify them.</p></div>
+                    <a href="/admin/counselors.php" class="btn btn-light">Review now</a>
+                </div>
+            <?php endif; ?>
+
+            <div class="grid-2">
+                <div class="card"><div class="card-head"><h2>Appointments per month</h2><a class="link" href="/admin/reports.php">Reports</a></div><?php echo svg_columns(array_column($months, 'label'), $apptByMonth, 'Appointments per month'); ?></div>
+                <div class="card"><div class="card-head"><h2>New accounts per month</h2><a class="link" href="/admin/users.php">Users</a></div><?php echo svg_columns(array_column($months, 'label'), $usersByMonth, 'New accounts per month'); ?></div>
             </div>
 
             <div class="content-grid">
-                <div class="stack">
-                    <?php if ($detail): ?>
-                        <div class="card details-panel" id="details">
-                            <div class="card-head"><h2>Appointment Details</h2><a class="link" href="/counselor/?<?php echo $search !== '' ? 'q=' . urlencode($search) . '&amp;' : ''; ?>status=<?php echo e($status); ?>">Close</a></div>
-                            <div class="detail-row"><span>Patient</span><strong><?php echo e($detail['patient']['full_name'] ?? 'Unknown'); ?></strong></div>
-                            <div class="detail-row"><span>Type</span><strong><?php echo e(ucfirst($detail['patient']['patient_type'] ?? '-')); ?></strong></div>
-                            <div class="detail-row"><span>Scheduled</span><strong><?php echo e(fmt_dt($detail['scheduled_at'], 'M d, Y · g:i A')); ?></strong></div>
-                            <div class="detail-row"><span>Session topic</span><strong><?php echo e($detail['reason'] ?? '-'); ?></strong></div>
-                            <div class="detail-row"><span>Status</span><strong><?php echo status_badge($detail['status']); ?></strong></div>
-
-                            <div class="details-actions">
-                                <?php if ($detail['status'] === 'pending'): ?>
-                                    <form method="POST" action="/counselor/requests.php" class="inline-form">
-                                        <?php echo csrf_field(); ?>
-                                        <input type="hidden" name="appointment_id" value="<?php echo e($detail['id']); ?>">
-                                        <button type="submit" name="action" value="approve" class="btn btn-success-sm">Approve</button>
-                                        <button type="submit" name="action" value="decline" class="btn btn-outline-danger-sm">Decline</button>
-                                    </form>
-                                <?php endif; ?>
-                                <a class="btn-sm" href="/counselor/record.php?patient_id=<?php echo e($detail['patient_id']); ?>">Open patient record</a>
-                            </div>
-                        </div>
-                    <?php endif; ?>
-
-                    <div class="card">
-                        <div class="card-head">
-                            <div><h2>All Appointments &amp; Schedule</h2><p class="card-sub">Manage counseling sessions and review statuses</p></div>
-                            <div class="tabs">
-                                <a class="tab<?php echo $status === 'all' ? ' active' : ''; ?>" href="/counselor/<?php echo $search !== '' ? '?q=' . urlencode($search) : ''; ?>">All</a>
-                                <a class="tab<?php echo $status === 'confirmed' ? ' active' : ''; ?>" href="/counselor/?status=confirmed<?php echo $search !== '' ? '&amp;q=' . urlencode($search) : ''; ?>">Confirmed</a>
-                                <a class="tab<?php echo $status === 'pending' ? ' active' : ''; ?>" href="/counselor/?status=pending<?php echo $search !== '' ? '&amp;q=' . urlencode($search) : ''; ?>">Pending</a>
-                            </div>
-                        </div>
-                        <table class="data-table">
-                            <thead><tr><th>Date / Time</th><th>Patient / Type</th><th>Topic / Reason</th><th>Status</th><th>Action</th></tr></thead>
-                            <tbody>
-                            <?php if (!$rows): ?>
-                                <tr><td colspan="5">No appointments found matching your criteria.</td></tr>
-                            <?php else: foreach ($rows as $a): $ts = strtotime($a['scheduled_at']); ?>
-                                <tr>
-                                    <td>
-                                        <div class="when">
-                                            <span class="date-chip"><small><?php echo e(strtoupper(date('M', $ts))); ?></small><strong><?php echo e(date('d', $ts)); ?></strong></span>
-                                            <span><?php echo e(date('g:i A', $ts)); ?></span>
-                                        </div>
-                                    </td>
-                                    <td><strong><?php echo e($a['patient']['full_name'] ?? 'Unknown'); ?></strong><br><small><?php echo e(ucfirst($a['patient']['patient_type'] ?? '-')); ?></small></td>
-                                    <td><?php echo e($a['reason'] ?? '-'); ?></td>
-                                    <td><?php echo status_badge($a['status']); ?></td>
-                                    <td><a class="btn-sm" href="/counselor/?<?php echo $search !== '' ? 'q=' . urlencode($search) . '&amp;' : ''; ?><?php echo $status !== 'all' ? 'status=' . e($status) . '&amp;' : ''; ?>view=<?php echo e($a['id']); ?>#details">Manage</a></td>
-                                </tr>
-                            <?php endforeach; endif; ?>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <div class="cta">
-                        <div><h3>Need to schedule an extra session?</h3><p>Update your time blocks so patients can book you.</p></div>
-                        <a href="/counselor/availability.php" class="btn btn-light">Manage availability</a>
-                    </div>
+                <div class="card">
+                    <div class="card-head"><div><h2>Recent Users</h2><p class="card-sub">Newest accounts across all roles</p></div><a class="link" href="/admin/users.php">Manage</a></div>
+                    <table class="data-table">
+                        <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Joined</th></tr></thead>
+                        <tbody>
+                        <?php if (!$profiles): ?>
+                            <tr><td colspan="5">No users found.</td></tr>
+                        <?php else: foreach (array_slice($profiles, 0, 6) as $p): $active = ($p['is_active'] ?? true) !== false; ?>
+                            <tr>
+                                <td><strong><?php echo e($p['full_name'] ?? '-'); ?></strong></td>
+                                <td><?php echo e($p['email'] ?? '-'); ?></td>
+                                <td><?php echo status_badge($p['role']); ?></td>
+                                <td><span class="status <?php echo $active ? 'active' : 'deactivated'; ?>"><?php echo $active ? 'Active' : 'Deactivated'; ?></span></td>
+                                <td class="nowrap"><?php echo e(fmt_dt($p['created_at'], 'M d, Y')); ?></td>
+                            </tr>
+                        <?php endforeach; endif; ?>
+                        </tbody>
+                    </table>
                 </div>
 
                 <div class="stack">
                     <div class="card">
-                        <div class="card-head"><h2>Recent Records</h2><a class="link" href="/counselor/record.php">Add record</a></div>
-                        <?php if (!$records): ?>
-                            <p class="empty">No records yet.</p>
-                        <?php else: foreach ($records as $r): ?>
+                        <div class="card-head"><h2>Appointments by status</h2></div>
+                        <?php foreach ($statusCounts as $k => $v) { echo bar_row(ucfirst($k), $v, count($appointments)); } ?>
+                    </div>
+                    <div class="card">
+                        <div class="card-head"><h2>Users by role</h2></div>
+                        <?php foreach (['patient' => 'Patients', 'counselor' => 'Counselors', 'admin' => 'Administrators'] as $k => $label) { echo bar_row($label, $roleCounts[$k], count($profiles)); } ?>
+                    </div>
+                    <div class="card">
+                        <div class="card-head"><h2>Recent activity</h2><a class="link" href="/admin/audit.php">All logs</a></div>
+                        <?php if (!$logs): ?>
+                            <p class="empty">No activity recorded yet.</p>
+                        <?php else: foreach ($logs as $l): ?>
                             <div class="result-item">
-                                <strong><?php echo e($r['diagnosis']); ?></strong>
-                                <small><?php echo e($r['patient']['full_name'] ?? 'Patient'); ?> · <?php echo !empty($r['shared_with_patient']) ? 'Shared' : 'Private'; ?> · <?php echo e(fmt_dt($r['created_at'], 'M d')); ?></small>
+                                <strong><?php echo e(str_replace('_', ' ', $l['action'])); ?></strong>
+                                <small><?php echo e($l['actor_name'] ?: 'Unknown'); ?> · <?php echo e(fmt_dt($l['created_at'], 'M d, g:i A')); ?></small>
                             </div>
                         <?php endforeach; endif; ?>
-                        <div class="note-box"><strong>Counselor note</strong><small>Session notes are private to you. Only diagnoses you mark as shared are visible to patients.</small></div>
                     </div>
                 </div>
             </div>
