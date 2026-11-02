@@ -95,6 +95,17 @@
   font-size: 11px;
   color: var(--muted);
 }
+
+.header-search-svg {
+  position: absolute;
+  left: 12px;
+  width: 16px;
+  height: 16px;
+  color: var(--muted);
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
 .search-alert {
   background: var(--green-soft);
   color: var(--green-dark);
