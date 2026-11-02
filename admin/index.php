@@ -1,3 +1,10 @@
+The layout appeared broken because the CSS class names used in the PHP file (`header-search-input`, `profile-interactable`, etc.) did not match the class names defined in your stylesheet (`dashboard-search-input`, `profile-interactable`, etc.), causing the browser to render them unstyled and the search icon to blow up to its full native size.
+
+Here is the corrected **`admin/index.php`** using the exact matching stylesheet class names:
+
+### Updated `admin/index.php`
+
+```php
 <?php
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/layout.php';
@@ -49,18 +56,18 @@ $fullName = $me['profile']['full_name'] ?? 'Administrator';
 $nameParts = explode(' ', $fullName);
 $initials = strtoupper(substr($nameParts[0], 0, 1) . (isset($nameParts[1]) ? substr($nameParts[1], 0, 1) : ''));
 
-// Construct header search bar and profile interactable widgets
+// Construct header search bar and profile interactable widgets using matching stylesheet classes
 $rightContent = '
-    <form method="GET" action="/admin/" class="header-search-form">
-        <div class="header-search-box">
-            <input type="text" name="q" value="' . e($search) . '" placeholder="Search users by name or email..." class="header-search-input">
-            <svg class="header-search-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <form method="GET" action="/admin/" class="dashboard-search-form">
+        <div class="dashboard-search-wrapper">
+            <input type="text" name="q" value="' . e($search) . '" placeholder="Search users by name or email..." class="dashboard-search-input">
+            <svg class="dashboard-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
         </div>
         ' . ($search !== '' ? '<a href="/admin/" class="btn-sm">Clear</a>' : '') . '
     </form>
-    <div class="header-profile-link">
-        <span class="header-profile-avatar">' . e($initials) . '</span>
-        <div class="header-profile-meta">
+    <div class="profile-interactable">
+        <span class="profile-avatar">' . e($initials) . '</span>
+        <div class="profile-info">
             <strong>' . e($fullName) . '</strong>
             <small>System Administrator</small>
         </div>
@@ -140,3 +147,5 @@ page_start('admin', 'Dashboard', '/admin/', 'Admin Overview', null, $rightConten
                 </div>
             </div>
 <?php page_end(); ?>
+
+```
