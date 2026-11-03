@@ -72,37 +72,37 @@ page_start('counselor', 'My Profile', '/counselor/profile.php', 'Counselor Profi
                 <form method="POST" action="/counselor/profile.php">
                     <?php echo csrf_field(); ?>
                     
-                    <div class="field" style="margin-bottom: 16px;">
+                    <div class="field">
                         <label for="full_name">Full Name</label>
                         <input type="text" id="full_name" name="full_name" value="<?php echo e($me['profile']['full_name'] ?? ''); ?>" required>
                     </div>
 
-                    <div class="field" style="margin-bottom: 16px;">
+                    <div class="field">
                         <label for="email">Email Address (Read-only)</label>
-                        <input type="email" id="email" value="<?php echo e($me['user']['email'] ?? ''); ?>" disabled style="background: #F4F1EA; color: var(--muted);">
+                        <input type="email" id="email" value="<?php echo e($me['user']['email'] ?? ''); ?>" disabled>
                     </div>
 
-                    <div class="field" style="margin-bottom: 16px;">
+                    <div class="field">
                         <label for="specialization">Specialization</label>
                         <input type="text" id="specialization" name="specialization" value="<?php echo e($details['specialization'] ?? ''); ?>" required>
                     </div>
 
-                    <div class="field" style="margin-bottom: 24px;">
+                    <div class="field">
                         <label for="license_number">License number</label>
                         <input type="text" id="license_number" name="license_number" value="<?php echo e($details['license_number'] ?? ''); ?>" required>
                     </div>
 
-                    <hr style="border: 0; border-top: 1px solid var(--line); margin: 24px 0;">
+                    <div class="field">
+                        <h3>Change Password</h3>
+                        <p class="form-hint">Leave blank if you do not wish to change your current password.</p>
+                    </div>
 
-                    <h3 style="font-size: 16px; margin-bottom: 12px;">Change Password</h3>
-                    <p style="font-size: 13px; color: var(--muted); margin-bottom: 16px;">Leave blank if you do not wish to change your current password.</p>
-
-                    <div class="field" style="margin-bottom: 16px;">
+                    <div class="field">
                         <label for="new_password">New Password</label>
                         <input type="password" id="new_password" name="new_password" placeholder="At least 6 characters">
                     </div>
 
-                    <div class="field" style="margin-bottom: 24px;">
+                    <div class="field">
                         <label for="confirm_password">Confirm New Password</label>
                         <input type="password" id="confirm_password" name="confirm_password" placeholder="Re-enter new password">
                     </div>
