@@ -2,7 +2,7 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/layout.php';
 
-$me = require_role('counselor');
+$me = require_role('admin');
 $uid = $me['user']['id'];
 $token = $me['token'];
 
