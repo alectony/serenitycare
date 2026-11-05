@@ -63,6 +63,59 @@ function get_notifications($uid, $token, $limit = 50, $onlyUnread = false) {
     return ($r['status'] === 200 && is_array($r['data'])) ? $r['data'] : [];
 }
 
+/* ---- Patient dashboard header: search bar + profile button (top right) ---- */
+function patient_header($uid, $token) {
+    $r   = sb_request('GET', 'profiles', 'select=full_name,details:patient_details(avatar)&id=eq.' . urlencode($uid), null, $token);
+    $row = ($r['status'] === 200 && !empty($r['data'][0])) ? $r['data'][0] : [];
+    $det = $row['details'] ?? [];
+    if (isset($det[0])) { $det = $det[0]; }          // handles both object and array results
+    $name = $row['full_name'] ?? 'Patient';
+    $ini  = '';
+    foreach (array_slice(preg_split('/\s+/', trim($name)), 0, 2) as $w) { $ini .= mb_strtoupper(mb_substr($w, 0, 1)); }
+    $avatar = !empty($det['avatar'])
+        ? '<img class="profile-avatar" src="' . e($det['avatar']) . '" alt="">'
+        : '<span class="profile-avatar">' . e($ini) . '</span>';
+
+    return '<form method="get" action="/patient/" class="dashboard-search-form">'
+        . '<div class="dashboard-search-wrapper">'
+        . '<svg class="dashboard-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>'
+        . '<input type="text" name="q" class="dashboard-search-input" placeholder="Search counselors by name..." value="' . e($_GET['q'] ?? '') . '">'
+        . '</div></form>'
+        . '<a href="/patient/profile.php" class="profile-interactable">' . $avatar
+        . '<span class="profile-info"><strong>' . e($name) . '</strong><small>Patient</small></span></a>';
+}
+
+// Popup with the counselors that match ?q=... (shown on top of the dashboard)
+function patient_search_modal($token) {
+    $q = pg_term($_GET['q'] ?? '');
+    if ($q === '') { return ''; }
+    $r = sb_request('GET', 'profiles',
+        'select=id,full_name&role=eq.counselor&full_name=ilike.' . rawurlencode('*' . $q . '*') . '&order=full_name.asc&limit=20', null, $token);
+    $found = ($r['status'] === 200 && is_array($r['data'])) ? $r['data'] : [];
+
+    $h = '<div class="modal-overlay"><div class="modal-card"><div class="modal-header">'
+       . '<h2>Counselors matching &ldquo;' . e($q) . '&rdquo;</h2>'
+       . '<a href="/patient/" class="modal-close-btn" aria-label="Close">&times;</a></div><div class="modal-body">';
+    if (!$found) {
+        $h .= '<p class="empty">No counselors found.</p>';
+    }
+    foreach ($found as $c) {
+        $h .= '<div class="patient-popup-item"><div class="patient-popup-info"><strong>' . e($c['full_name']) . '</strong><small>Counselor</small></div>'
+            . '<a class="btn-sm" href="/patient/book.php?counselor_id=' . e($c['id']) . '">Book</a></div>';
+    }
+    return $h . '</div></div></div>';
+}
+
+nav_for() => [
+    '/patient/'                 => ['Dashboard', 'dashboard'],
+    '/patient/appointment.php'  => ['Appointments', 'calendar'],
+    '/patient/book.php'         => ['Book appointment', 'check'],
+    '/patient/results.php'      => ['Diagnosis & Results', 'file'],
+    '/patient/summaries.php'    => ['Session Summaries', 'list'],
+    '/patient/notification.php' => ['Notifications', 'bell'],
+    '/patient/profile.php'      => ['My Profile', 'user'],
+],
+
 /* ---- UI components (same markup on every dashboard = consistent look) ---- */
 function icon($name) {
     static $paths = [
