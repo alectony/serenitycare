@@ -20,6 +20,12 @@ function greeting() {
     return $h < 12 ? 'Good morning' : ($h < 18 ? 'Good afternoon' : 'Good evening');
 }
 
+'patient' => [
+    '/patient/'                      => ['Dashboard', 'dashboard'],
+    '/patient/appointment.php'       => ['Appointments', 'calendar'],
+    '/patient/notification.php'      => ['Notifications', 'bell'],
+],
+
 /* ---- CSRF (double-submit cookie; works without PHP sessions) ---- */
 function csrf_token() {
     if (empty($_COOKIE['csrf'])) {
@@ -52,6 +58,15 @@ function get_counselor_patients($uid, $token) {
     }
     usort($out, fn($a, $b) => strcasecmp($a['full_name'] ?? '', $b['full_name'] ?? ''));
     return $out;
+}
+
+// Notifications of one user (newest first). Returns [] on error.
+function get_notifications($uid, $token, $limit = 50, $onlyUnread = false) {
+    $q = 'select=id,title,message,type,is_read,created_at&user_id=eq.' . urlencode($uid)
+       . ($onlyUnread ? '&is_read=eq.false' : '')
+       . '&order=created_at.desc&limit=' . (int) $limit;
+    $r = sb_request('GET', 'notifications', $q, null, $token);
+    return ($r['status'] === 200 && is_array($r['data'])) ? $r['data'] : [];
 }
 
 /* ---- UI components (same markup on every dashboard = consistent look) ---- */
