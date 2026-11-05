@@ -106,16 +106,6 @@ function patient_search_modal($token) {
     return $h . '</div></div></div>';
 }
 
-nav_for() => [
-    '/patient/'                 => ['Dashboard', 'dashboard'],
-    '/patient/appointment.php'  => ['Appointments', 'calendar'],
-    '/patient/book.php'         => ['Book appointment', 'check'],
-    '/patient/results.php'      => ['Diagnosis & Results', 'file'],
-    '/patient/summaries.php'    => ['Session Summaries', 'list'],
-    '/patient/notification.php' => ['Notifications', 'bell'],
-    '/patient/profile.php'      => ['My Profile', 'user'],
-],
-
 /* ---- UI components (same markup on every dashboard = consistent look) ---- */
 function icon($name) {
     static $paths = [
