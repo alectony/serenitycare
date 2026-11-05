@@ -20,12 +20,6 @@ function greeting() {
     return $h < 12 ? 'Good morning' : ($h < 18 ? 'Good afternoon' : 'Good evening');
 }
 
-'patient' => [
-    '/patient/'                      => ['Dashboard', 'dashboard'],
-    '/patient/appointment.php'       => ['Appointments', 'calendar'],
-    '/patient/notification.php'      => ['Notifications', 'bell'],
-],
-
 /* ---- CSRF (double-submit cookie; works without PHP sessions) ---- */
 function csrf_token() {
     if (empty($_COOKIE['csrf'])) {
