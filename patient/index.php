@@ -23,8 +23,10 @@ $dx = sb_request('GET', 'diagnoses',
 $results = ($dx['status'] === 200 && is_array($dx['data'])) ? $dx['data'] : [];
 
 $name = $me['profile']['full_name'] ?? 'there';
-page_start('patient', 'Dashboard', '/patient/', greeting() . ', ' . $name);
+$rightContent = patient_header($uid, $token);
+page_start('patient', 'Dashboard', '/patient/', greeting() . ', ' . $name, null, $rightContent);
 ?>
+            <?php echo patient_search_modal($token); ?>
             <?php if ($failed): ?><div class="alert error">Could not load your appointments. Please refresh.</div><?php endif; ?>
 
             <div class="stats">
