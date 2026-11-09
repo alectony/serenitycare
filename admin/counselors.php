@@ -73,6 +73,7 @@ page_start('admin', 'Counselor Verification', '/admin/counselors.php', 'Counselo
 ?>
             <?php if ($msg): ?><div class="alert success"><?php echo e($msg); ?></div><?php endif; ?>
             <?php if ($err): ?><div class="alert error"><?php echo e($err); ?></div><?php endif; ?>
+                
 
             <div class="stats">
                 <?php echo stat_card('Pending review', $counts['pending'], 'Awaiting your decision', 'clock'); ?>
