@@ -60,6 +60,7 @@ foreach ($counselors as $c) {
     $c['note'] = $verif[$c['id']]['note'] ?? '';
     $c['reviewed_at'] = $verif[$c['id']]['reviewed_at'] ?? '';
     $c['details'] = $details[$c['id']] ?? null;
+    
     $rows[] = $c;
 }
 $counts = ['pending' => 0, 'verified' => 0, 'rejected' => 0];
