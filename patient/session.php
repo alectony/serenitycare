@@ -4,7 +4,7 @@ require_once __DIR__ . '/../includes/layout.php';
 
 /* AUTH: copy the exact first lines from patient/appointment.php (this is an example) */
 $user  = require_role('patient');
-$uid   = $user['id'];
+$uid   = $user['user']['id'] ?? ($user['id'] ?? null);
 $token = $user['token'];
 
 /* ASSUMED TABLE: session_summaries(id, patient_id, counselor_id, appointment_id, summary, next_steps, shared, created_at)
