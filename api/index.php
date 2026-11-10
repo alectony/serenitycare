@@ -16,14 +16,14 @@ if (preg_match('#^(css|js)/([A-Za-z0-9._-]+\.(css|js))$#', $path, $m)) {
     exit;
 }
 
-// Home page -> login
-if ($path === '') {
-    require __DIR__ . '/login.php';
+// Home page -> landing page
+if ($path === '' || $path === 'index.php') {
+    require __DIR__ . '/landing.php';
     exit;
 }
 
 // Public pages that live next to this file, in /api
-$apiPages = ['login.php', 'register.php', 'logout.php'];
+$apiPages = ['login.php', 'register.php', 'logout.php', 'landing.php'];
 if (in_array($path, $apiPages, true)) {
     require __DIR__ . '/' . $path;
     exit;

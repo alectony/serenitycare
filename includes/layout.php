@@ -63,6 +63,49 @@ function get_notifications($uid, $token, $limit = 50, $onlyUnread = false) {
     return ($r['status'] === 200 && is_array($r['data'])) ? $r['data'] : [];
 }
 
+/* ---- Patient dashboard header: search bar + profile button (top right) ---- */
+function patient_header($uid, $token) {
+    $r   = sb_request('GET', 'profiles', 'select=full_name,details:patient_details(avatar)&id=eq.' . urlencode($uid), null, $token);
+    $row = ($r['status'] === 200 && !empty($r['data'][0])) ? $r['data'][0] : [];
+    $det = $row['details'] ?? [];
+    if (isset($det[0])) { $det = $det[0]; }          // handles both object and array results
+    $name = $row['full_name'] ?? 'Patient';
+    $ini  = '';
+    foreach (array_slice(preg_split('/\s+/', trim($name)), 0, 2) as $w) { $ini .= mb_strtoupper(mb_substr($w, 0, 1)); }
+    $avatar = !empty($det['avatar'])
+        ? '<img class="profile-avatar" src="' . e($det['avatar']) . '" alt="">'
+        : '<span class="profile-avatar">' . e($ini) . '</span>';
+
+    return '<form method="get" action="/patient/" class="dashboard-search-form">'
+        . '<div class="dashboard-search-wrapper">'
+        . '<svg class="dashboard-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>'
+        . '<input type="text" name="q" class="dashboard-search-input" placeholder="Search counselors by name..." value="' . e($_GET['q'] ?? '') . '">'
+        . '</div></form>'
+        . '<a href="/patient/profile.php" class="profile-interactable">' . $avatar
+        . '<span class="profile-info"><strong>' . e($name) . '</strong><small>Patient</small></span></a>';
+}
+
+// Popup with the counselors that match ?q=... (shown on top of the dashboard)
+function patient_search_modal($token) {
+    $q = pg_term($_GET['q'] ?? '');
+    if ($q === '') { return ''; }
+    $r = sb_request('GET', 'profiles',
+        'select=id,full_name&role=eq.counselor&full_name=ilike.' . rawurlencode('*' . $q . '*') . '&order=full_name.asc&limit=20', null, $token);
+    $found = ($r['status'] === 200 && is_array($r['data'])) ? $r['data'] : [];
+
+    $h = '<div class="modal-overlay"><div class="modal-card"><div class="modal-header">'
+       . '<h2>Counselors matching &ldquo;' . e($q) . '&rdquo;</h2>'
+       . '<a href="/patient/" class="modal-close-btn" aria-label="Close">&times;</a></div><div class="modal-body">';
+    if (!$found) {
+        $h .= '<p class="empty">No counselors found.</p>';
+    }
+    foreach ($found as $c) {
+        $h .= '<div class="patient-popup-item"><div class="patient-popup-info"><strong>' . e($c['full_name']) . '</strong><small>Counselor</small></div>'
+            . '<a class="btn-sm" href="/patient/book.php?counselor_id=' . e($c['id']) . '">Book</a></div>';
+    }
+    return $h . '</div></div></div>';
+}
+
 /* ---- UI components (same markup on every dashboard = consistent look) ---- */
 function icon($name) {
     static $paths = [
@@ -80,9 +123,37 @@ function icon($name) {
         'list'      => '<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>',
         'key'       => '<circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6M15.5 7.5l3 3L22 7l-3-3"/>',
         'check'     => '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
+        'sun'       => '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>',
+        'moon'      => '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>',
+        'sparkles'  => '<path d="m12 3 1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3Z"/>',
     ];
     $p = $paths[$name] ?? $paths['dashboard'];
     return '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . $p . '</svg>';
+}
+
+function theme_toggle_button() {
+    return '<button type="button" class="theme-toggle-btn" data-theme-toggle title="Toggle Dark/Light Mode" aria-label="Toggle Dark/Light Mode">'
+        . '<svg class="icon icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>'
+        . '<svg class="icon icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>'
+        . '</button>';
+}
+
+function skeleton_demo_markup() {
+    return '
+    <div class="skeleton-shown-on-preview" aria-hidden="true">
+        <div class="stats">
+            <div class="skeleton-card"><div class="skeleton skeleton-title" style="width:40%;"></div><div class="skeleton skeleton-stat"></div><div class="skeleton skeleton-text short"></div></div>
+            <div class="skeleton-card"><div class="skeleton skeleton-title" style="width:45%;"></div><div class="skeleton skeleton-stat"></div><div class="skeleton skeleton-text short"></div></div>
+            <div class="skeleton-card"><div class="skeleton skeleton-title" style="width:38%;"></div><div class="skeleton skeleton-stat"></div><div class="skeleton skeleton-text short"></div></div>
+        </div>
+        <div class="card" style="margin-top:22px;">
+            <div class="skeleton skeleton-title" style="width:28%;margin-bottom:18px;"></div>
+            <div class="skeleton-row"><div class="skeleton skeleton-avatar"></div><div style="flex:1"><div class="skeleton skeleton-text medium"></div><div class="skeleton skeleton-text short"></div></div><div class="skeleton skeleton-badge"></div></div>
+            <div class="skeleton-row"><div class="skeleton skeleton-avatar"></div><div style="flex:1"><div class="skeleton skeleton-text medium"></div><div class="skeleton skeleton-text short"></div></div><div class="skeleton skeleton-badge"></div></div>
+            <div class="skeleton-row"><div class="skeleton skeleton-avatar"></div><div style="flex:1"><div class="skeleton skeleton-text medium"></div><div class="skeleton skeleton-text short"></div></div><div class="skeleton skeleton-badge"></div></div>
+            <div class="skeleton-row"><div class="skeleton skeleton-avatar"></div><div style="flex:1"><div class="skeleton skeleton-text medium"></div><div class="skeleton skeleton-text short"></div></div><div class="skeleton skeleton-badge"></div></div>
+        </div>
+    </div>';
 }
 
 function stat_card($label, $value, $note = '', $iconName = 'dashboard') {
@@ -108,10 +179,13 @@ function nav_for($role) {
             '/counselor/record.php'       => ['Patient Records', 'file'],
             '/counselor/availability.php' => ['Availability', 'clock'],
             '/counselor/profile.php'      => ['My Profile', 'user'],
+            '/counselor/settings.php'     => ['Settings', 'settings'],
         ],
         'patient' => [
             '/patient/'                   => ['Dashboard', 'dashboard'],
             '/patient/appointment.php'    => ['Appointments', 'calendar'],
+            '/patient/profile.php'        => ['My Profile', 'user'],
+            '/patient/settings.php'       => ['Settings', 'settings'],
         ],
         'admin' => [
             '/admin/'                     => ['Dashboard', 'dashboard'],
@@ -143,7 +217,14 @@ function page_start($role, $title, $current, $heading = null, $subtitle = null, 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo e($title); ?> - SerenityCare</title>
+    <script>
+    (function(){
+        var t = localStorage.getItem('serenity_theme') || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', t);
+    })();
+    </script>
     <link rel="stylesheet" href="/css/style.css">
+    <script src="/js/serenity.js" defer></script>
 </head>
 <body class="dashboard-body role-<?php echo e($role); ?>">
     <div class="app-layout">
@@ -157,7 +238,9 @@ function page_start($role, $title, $current, $heading = null, $subtitle = null, 
                     <a href="<?php echo e($href); ?>"<?php echo $href === $current ? ' class="active"' : ''; ?>><?php echo icon($item[1]); ?><span><?php echo e($item[0]); ?></span></a>
                 <?php endforeach; ?>
             </nav>
-            <div class="sidebar-footer"><a href="/logout.php" class="logout-btn"><?php echo icon('logout'); ?><span>Log out</span></a></div>
+            <div class="sidebar-footer">
+                <a href="/logout.php" class="logout-btn"><?php echo icon('logout'); ?><span>Log out</span></a>
+            </div>
         </aside>
         <main class="main-content">
             <header class="top-bar top-bar-flex">
@@ -165,17 +248,20 @@ function page_start($role, $title, $current, $heading = null, $subtitle = null, 
                     <h1><?php echo e($heading); ?></h1>
                     <?php if ($subtitle !== ''): ?><p class="subtitle"><?php echo e($subtitle); ?></p><?php endif; ?>
                 </div>
-                <?php if ($rightContent !== null): ?>
-                    <div class="top-bar-right">
+                <div class="top-bar-right">
+                    <?php if ($rightContent !== null): ?>
                         <?php echo $rightContent; ?>
-                    </div>
-                <?php endif; ?>
+                    <?php endif; ?>
+                    <?php echo theme_toggle_button(); ?>
+                </div>
             </header>
+            <?php echo skeleton_demo_markup(); ?>
+            <div class="skeleton-hidden-on-preview">
 <?php
 }
 
 function page_end() {
-    echo "        </main>\n    </div>\n</body>\n</html>\n";
+    echo "            </div>\n        </main>\n    </div>\n</body>\n</html>\n";
 }
 
 /* ---- Filters, paging, charts (plain PHP/HTML/SVG - no JavaScript) ---- */

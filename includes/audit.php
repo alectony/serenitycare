@@ -30,6 +30,17 @@ function settings_defaults() {
         'working_days'        => 'Monday,Tuesday,Wednesday,Thursday,Friday',
         'session_minutes'     => '50',
         'booking_window_days' => '60',
+        'idle_timeout'        => '30',
+        'require_2fa'         => '0',
+        'email_notifications' => '1',
+        'sms_reminders'       => '0',
+        'audit_retention'     => '90',
+        'patient_reg_mode'    => 'open',
+        'default_theme'       => 'system',
+        'buffer_minutes'      => '15',
+        'max_daily_sessions'  => '6',
+        'auto_share_dx'       => '0',
+        'emergency_banner'    => '1',
     ];
 }
 
@@ -38,12 +49,13 @@ function get_settings($token) {
     $r = sb_request('GET', 'system_settings', 'select=key,value', null, $token);
     if ($r['status'] === 200 && is_array($r['data'])) {
         foreach ($r['data'] as $row) {
-            if (isset($s[$row['key']])) { $s[$row['key']] = (string) $row['value']; }
+            $s[$row['key']] = (string) $row['value'];
         }
     }
     return $s;
 }
 
 function settings_days($settings) {
-    return array_values(array_filter(array_map('trim', explode(',', (string) $settings['working_days']))));
-}?>
+    return array_values(array_filter(array_map('trim', explode(',', (string) ($settings['working_days'] ?? '')))));
+}
+?>

@@ -60,6 +60,7 @@ foreach ($counselors as $c) {
     $c['note'] = $verif[$c['id']]['note'] ?? '';
     $c['reviewed_at'] = $verif[$c['id']]['reviewed_at'] ?? '';
     $c['details'] = $details[$c['id']] ?? null;
+    
     $rows[] = $c;
 }
 $counts = ['pending' => 0, 'verified' => 0, 'rejected' => 0];
@@ -73,6 +74,7 @@ page_start('admin', 'Counselor Verification', '/admin/counselors.php', 'Counselo
 ?>
             <?php if ($msg): ?><div class="alert success"><?php echo e($msg); ?></div><?php endif; ?>
             <?php if ($err): ?><div class="alert error"><?php echo e($err); ?></div><?php endif; ?>
+                
 
             <div class="stats">
                 <?php echo stat_card('Pending review', $counts['pending'], 'Awaiting your decision', 'clock'); ?>

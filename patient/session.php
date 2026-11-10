@@ -1,0 +1,101 @@
+<?php
+require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/layout.php';
+
+/* AUTH: copy the exact first lines from patient/appointment.php (this is an example) */
+$user  = require_role('patient');
+$uid   = $user['user']['id'] ?? ($user['id'] ?? null);
+$token = $user['token'];
+
+/* ASSUMED TABLE: session_summaries(id, patient_id, counselor_id, appointment_id, summary, next_steps, shared, created_at)
+   Patients only ever see rows where shared = true. */
+function rows($r) { return ($r['status'] === 200 && is_array($r['data'])) ? $r['data'] : []; }
+
+$perPage = 10;
+$page    = max(1, (int) ($_GET['page'] ?? 1));
+$mine    = 'patient_id=eq.' . urlencode($uid) . '&shared=eq.true';
+$cols    = 'id,summary,next_steps,created_at,counselor:profiles!counselor_id(full_name),appointment:appointments(scheduled_at)';
+
+$list = rows(sb_request('GET', 'session_summaries',
+    'select=' . $cols . '&' . $mine . '&order=created_at.desc&limit=' . ($perPage + 1) . '&offset=' . (($page - 1) * $perPage),
+    null, $token));
+$hasNext = count($list) > $perPage;
+$list    = array_slice($list, 0, $perPage);
+
+// The summary currently open on the right (?id=...)
+$open = null;
+$id   = $_GET['id'] ?? '';
+if (is_uuid($id)) {
+    $open = rows(sb_request('GET', 'session_summaries', 'select=' . $cols . '&id=eq.' . urlencode($id) . '&' . $mine, null, $token))[0] ?? null;
+}
+
+// Session date: the appointment time if linked, otherwise the day the summary was written
+function session_date($s) { return $s['appointment']['scheduled_at'] ?? $s['created_at']; }
+
+page_start('patient', 'Session Summaries', '/patient/summaries.php', 'Session summaries', 'Notes your counselor chose to share after your sessions.');
+?>
+<div class="content-grid">
+
+  <section class="card">
+    <div class="card-head">
+      <div><h2>Your sessions</h2><p class="card-sub">Newest first</p></div>
+    </div>
+
+    <?php if (!$list): ?>
+      <p class="empty">No summaries yet. After a session, your counselor may share a short summary here.</p>
+    <?php else: ?>
+      <div class="request-list">
+        <?php foreach ($list as $s): $t = strtotime(session_date($s)); ?>
+          <article class="request-item">
+            <div class="when">
+              <span class="date-chip"><small><?= strtoupper(date('M', $t)) ?></small><strong><?= date('j', $t) ?></strong></span>
+              <div>
+                <strong><?= e($s['counselor']['full_name'] ?? 'Counselor') ?></strong>
+                <small><?= e(mb_strimwidth((string) $s['summary'], 0, 110, '...')) ?></small>
+              </div>
+            </div>
+            <div class="request-actions">
+              <a class="btn-sm" href="?<?= e(qs(['id' => $s['id']])) ?>">Read</a>
+            </div>
+          </article>
+        <?php endforeach; ?>
+      </div>
+      <?= pager($page, $hasNext) ?>
+    <?php endif; ?>
+  </section>
+
+  <div class="stack">
+    <?php if ($open): ?>
+      <section class="card details-panel">
+        <div class="card-head">
+          <h2>Session summary</h2>
+          <a class="link" href="?<?= e(qs(['id' => ''])) ?>">Close</a>
+        </div>
+        <div class="detail-row"><span>Session</span><strong><?= e(fmt_dt(session_date($open))) ?></strong></div>
+        <div class="detail-row"><span>Counselor</span><strong><?= e($open['counselor']['full_name'] ?? '-') ?></strong></div>
+
+        <p class="card-sub">Summary</p>
+        <p><?= nl2br(e($open['summary'])) ?></p>
+
+        <p class="card-sub">Next steps</p>
+        <p><?= !empty($open['next_steps']) ? nl2br(e($open['next_steps'])) : 'No next steps were added.' ?></p>
+
+        <div class="details-actions">
+          <a class="btn" href="/patient/book.php">Book another session</a>
+        </div>
+      </section>
+    <?php elseif ($list): ?>
+      <div class="note-box">
+        <strong>Select a session</strong>
+        <small>Press Read to see the full summary and your next steps.</small>
+      </div>
+    <?php endif; ?>
+
+    <div class="note-box">
+      <strong>Your privacy</strong>
+      <small>Only summaries your counselor chose to share appear here. They are visible only to you and your counselor.</small>
+    </div>
+  </div>
+
+</div>
+<?php page_end(); ?>
