@@ -2375,3 +2375,59 @@ progress::-moz-progress-bar {
     display: none;
   }
 }
+
+/* ---------- Profile page ---------- */
+
+/* File upload inputs ("Choose File") */
+.field input[type="file"] {
+  width: 100%;
+  padding: 8px;
+  background: #FBF9F5;
+  border: 1.5px dashed #C9D5CC;
+  border-radius: 12px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.field input[type="file"]:hover {
+  border-color: var(--green);
+  background: var(--green-soft);
+}
+.field input[type="file"]:focus-visible {
+  outline: none;
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px var(--green-soft);
+}
+.field input[type="file"]::file-selector-button {
+  font: inherit;
+  font-weight: 600;
+  font-size: 13px;
+  background: var(--green);
+  color: #fff;
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 14px;
+  margin-right: 12px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+.field input[type="file"]:hover::file-selector-button {
+  background: var(--green-dark);
+}
+
+/* Spacing: rows of fields, and the hint line under the uploads */
+.form-row { margin-bottom: 16px; }
+.form-row + .form-hint { margin: 4px 0 18px; }
+
+/* "(leave empty to keep current)" next to a label */
+label small { font-weight: 400; margin-left: 4px; }
+
+/* Current profile picture shown at the top of the form */
+.avatar-lg {
+  width: 96px; height: 96px; border-radius: 50%; object-fit: cover;
+  border: 1px solid var(--line); display: block; margin-bottom: 14px;
+}
+
+/* Your page uses var(--surface-sunken) for the disabled "Account Role" box, but it isn't defined yet */
+:root { --surface-sunken: #F4F1EA; }
