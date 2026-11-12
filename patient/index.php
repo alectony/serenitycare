@@ -21,6 +21,7 @@ $dx = sb_request('GET', 'diagnoses',
     'select=diagnosis,recommendations,created_at,counselor:profiles!counselor_id(full_name)'
     . '&patient_id=eq.' . urlencode($uid) . '&shared_with_patient=eq.true&order=created_at.desc&limit=5', null, $token);
 $results = ($dx['status'] === 200 && is_array($dx['data'])) ? $dx['data'] : [];
+$unread = get_notifications($uid, $token, 100, true);
 
 $name = $me['profile']['full_name'] ?? 'there';
 $rightContent = patient_header($uid, $token);
@@ -34,6 +35,7 @@ page_start('patient', 'Dashboard', '/patient/', greeting() . ', ' . $name, null,
                     $upcoming ? 'with ' . ($upcoming[0]['counselor']['full_name'] ?? 'your counselor') : 'Book a session below', 'calendar'); ?>
                 <?php echo stat_card('Upcoming sessions', count($upcoming), 'Pending or confirmed', 'clock'); ?>
                 <?php echo stat_card('Shared results', count($results), 'Visible only to you', 'file'); ?>
+                <?php echo stat_card('Unread alerts', count($unread), 'New notifications', 'bell'); ?>
             </div>
 
             <div class="content-grid">
@@ -76,6 +78,20 @@ page_start('patient', 'Dashboard', '/patient/', greeting() . ', ' . $name, null,
                             </div>
                         <?php endforeach; endif; ?>
                         <div class="note-box"><strong>Your privacy</strong><small>Only you and your counselor can see these records.</small></div>
+                        <div class="card">
+    <div class="card-head">
+        <div><h2>Notifications</h2><p class="card-sub"><?php echo count($unread); ?> unread</p></div>
+        <a class="link" href="/patient/notification.php">See all</a>
+    </div>
+    <?php if (!$unread): ?>
+        <p class="card-sub">You are all caught up.</p>
+    <?php else: foreach (array_slice($unread, 0, 3) as $n): ?>
+        <div class="result-item">
+            <strong><?php echo e($n['title']); ?></strong>
+            <small><?php echo e($n['message']); ?></small>
+        </div>
+    <?php endforeach; endif; ?>
+</div>
                     </div>
                 </div>
             </div>

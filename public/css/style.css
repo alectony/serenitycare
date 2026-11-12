@@ -2431,3 +2431,8 @@ label small { font-weight: 400; margin-left: 4px; }
 
 /* Your page uses var(--surface-sunken) for the disabled "Account Role" box, but it isn't defined yet */
 :root { --surface-sunken: #F4F1EA; }
+
+.request-item.unread {
+  background: color-mix(in srgb, var(--green, #1B6B79) 7%, transparent);
+  box-shadow: inset 3px 0 0 var(--green, #1B6B79);
+}
