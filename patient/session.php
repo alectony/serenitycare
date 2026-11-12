@@ -64,38 +64,35 @@ page_start('patient', 'Session Summaries', '/patient/summaries.php', 'Session su
     <?php endif; ?>
   </section>
 
-  <div class="stack">
-    <?php if ($open): ?>
-      <section class="card details-panel">
-        <div class="card-head">
-          <h2>Session summary</h2>
-          <a class="link" href="?<?= e(qs(['id' => ''])) ?>">Close</a>
-        </div>
-        <div class="detail-row"><span>Session</span><strong><?= e(fmt_dt(session_date($open))) ?></strong></div>
-        <div class="detail-row"><span>Counselor</span><strong><?= e($open['counselor']['full_name'] ?? '-') ?></strong></div>
+                  <div class="stack">
+                    <div class="card">
+                        <div class="card-head"><h2>Latest Results</h2><a class="link" href="/patient/results.php">View all</a></div>
+                        <?php if (!$results): ?>
+                            <p class="card-sub">No results have been shared with you yet.</p>
+                        <?php else: foreach ($results as $r): ?>
+                            <div class="result-item">
+                                <strong><?php echo e($r['diagnosis']); ?></strong>
+                                <small><?php echo e($r['counselor']['full_name'] ?? 'Counselor'); ?> · <?php echo e(fmt_dt($r['created_at'], 'M d, Y')); ?></small>
+                                <?php if (!empty($r['recommendations'])): ?><small>Recommendation: <?php echo e($r['recommendations']); ?></small><?php endif; ?>
+                            </div>
+                        <?php endforeach; endif; ?>
+                        <div class="note-box"><strong>Your privacy</strong><small>Only you and your counselor can see these records.</small></div>
+                    </div>
 
-        <p class="card-sub">Summary</p>
-        <p><?= nl2br(e($open['summary'])) ?></p>
-
-        <p class="card-sub">Next steps</p>
-        <p><?= !empty($open['next_steps']) ? nl2br(e($open['next_steps'])) : 'No next steps were added.' ?></p>
-
-        <div class="details-actions">
-          <a class="btn" href="/patient/book.php">Book another session</a>
-        </div>
-      </section>
-    <?php elseif ($list): ?>
-      <div class="note-box">
-        <strong>Select a session</strong>
-        <small>Press Read to see the full summary and your next steps.</small>
-      </div>
-    <?php endif; ?>
-
-    <div class="note-box">
-      <strong>Your privacy</strong>
-      <small>Only summaries your counselor chose to share appear here. They are visible only to you and your counselor.</small>
-    </div>
-  </div>
-
-</div>
+                    <div class="card">
+                        <div class="card-head">
+                            <div><h2>Notifications</h2><p class="card-sub"><?php echo count($unread); ?> unread</p></div>
+                            <a class="link" href="/patient/notification.php">See all</a>
+                        </div>
+                        <?php if (!$unread): ?>
+                            <p class="card-sub">You are all caught up.</p>
+                        <?php else: foreach (array_slice($unread, 0, 3) as $n): ?>
+                            <div class="result-item">
+                                <strong><?php echo e($n['title']); ?></strong>
+                                <small><?php echo e($n['message']); ?></small>
+                            </div>
+                        <?php endforeach; endif; ?>
+                    </div>
+                </div>
+            </div>
 <?php page_end(); ?>

@@ -188,6 +188,7 @@ function nav_for($role) {
             '/patient/settings.php'       => ['Settings', 'settings'],
             '/patient/results.php'        => ['Diagnosis & Results', 'file'],
             '/patient/notification.php'   => ['Notifications', 'bell'],
+            '/patient/session.php'      => ['Session Summaries', 'list'],
         ],
         'admin' => [
             '/admin/'                     => ['Dashboard', 'dashboard'],
