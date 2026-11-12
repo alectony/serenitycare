@@ -65,7 +65,7 @@ page_start('patient', 'Dashboard', '/patient/', greeting() . ', ' . $name, null,
 
                 <div class="stack">
                     <div class="card">
-                        <div class="card-head"><h2>Latest Results</h2></div>
+                        <div class="card-head"><h2>Latest Results</h2><a class="link" href="/patient/results.php">View all</a></div>
                         <?php if (!$results): ?>
                             <p class="card-sub">No results have been shared with you yet.</p>
                         <?php else: foreach ($results as $r): ?>
