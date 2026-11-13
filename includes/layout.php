@@ -179,6 +179,7 @@ function nav_for($role) {
             '/counselor/patients.php'     => ['Patient List', 'users'],
             '/counselor/record.php'       => ['Patient Records', 'file'],
             '/counselor/availability.php' => ['Availability', 'clock'],
+            '/counselor/reports.php'      => ['Reports & Export', 'chart'],
             '/counselor/profile.php'      => ['My Profile', 'user'],
             '/counselor/settings.php'     => ['Settings', 'settings'],
         ],
