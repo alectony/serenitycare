@@ -174,6 +174,7 @@ function nav_for($role) {
         'counselor' => [
             '/counselor/'                 => ['Dashboard', 'dashboard'],
             '/counselor/schedule.php'     => ['My Schedule', 'calendar'],
+            '/counselor/appointments.php' => ['All Appointments', 'list'],
             '/counselor/requests.php'     => ['Appointment Requests', 'bell'],
             '/counselor/patients.php'     => ['Patient List', 'users'],
             '/counselor/record.php'       => ['Patient Records', 'file'],
