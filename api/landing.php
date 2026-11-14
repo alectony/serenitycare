@@ -234,7 +234,7 @@ if ($token) {
                                 <li>Supportive, multidisciplinary care environment</li>
                                 <li>Direct impact on youth mental health &amp; growth</li>
                             </ul>
-                            <a href="mailto:careers@serenitycare.edu?subject=Application%20for%20Guidance%20Counselor%20Position" class="postit-btn">
+                            <a href="/fillup.php" class="postit-btn">
                                 ✉️ Inquire / Send Resume
                             </a>
                         </div>
