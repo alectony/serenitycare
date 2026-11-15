@@ -3,7 +3,9 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/layout.php';
 
 $user  = require_role('patient');
-$uid   = $user['user']['id'] ?? ($user['id'] ?? null);
+// require_role() returns ['id' => ..., 'user' => ..., 'token' => ...]
+// Use top-level 'id' (resolved user id); fall back to nested for safety
+$uid   = $user['id'] ?? ($user['user']['id'] ?? null);
 $token = $user['token'];
 
 // Uploaded image -> small JPEG data URL. Returns [error, dataUrl].

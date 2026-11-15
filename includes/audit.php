@@ -78,11 +78,10 @@ function create_notification($userId, $title, $message, $type = 'system', $token
     ], $token, 'return=minimal');
 
     // Also persist in local notifications backup
-    $dir = __DIR__ . '/data';
-    if (!is_dir($dir)) {
-        @mkdir($dir, 0755, true);
-    }
-    $file = $dir . '/notifications.json';
+    // Vercel serverless has read-only filesystem — use /tmp instead
+    $dir = (isset($_SERVER['VERCEL']) || (!is_dir(__DIR__ . '/data') && !@mkdir(__DIR__ . '/data', 0755, true)))
+        ? '/tmp' : __DIR__ . '/data';
+    $file = $dir . '/sc_notifications.json';
     $notifs = file_exists($file) ? (json_decode(file_get_contents($file), true) ?: []) : [];
     $notifs[] = [
         'id'         => bin2hex(random_bytes(8)),
@@ -111,7 +110,7 @@ function get_unread_notification_count($userId, $token) {
         return count($r['data']);
     }
     // Check local fallback
-    $file = __DIR__ . '/data/notifications.json';
+    $file = (isset($_SERVER['VERCEL']) || !is_dir(__DIR__ . '/data')) ? '/tmp/sc_notifications.json' : __DIR__ . '/data/sc_notifications.json';
     if (file_exists($file)) {
         $notifs = json_decode(file_get_contents($file), true) ?: [];
         $count = 0;

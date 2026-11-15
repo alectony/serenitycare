@@ -4,6 +4,10 @@ require_once __DIR__ . '/supabase.php';
 require_once __DIR__ . '/audit.php';
 
 function get_otp_store_file() {
+    // Vercel (and most serverless) has a read-only filesystem except /tmp
+    if (isset($_SERVER['VERCEL']) || !is_writable(__DIR__)) {
+        return '/tmp/sc_otp_codes.json';
+    }
     $dir = __DIR__ . '/data';
     if (!is_dir($dir)) {
         @mkdir($dir, 0755, true);
