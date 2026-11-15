@@ -363,6 +363,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </script>
         <?php endif; ?>
 
+        <div class="auth-footer">
+            Already have a staff account? <a href="/login.php">Sign In</a>
         </div>
     </main>
 
