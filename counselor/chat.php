@@ -97,6 +97,7 @@ page_start('counselor', 'Consultation Messages', '/counselor/chat.php', 'Student
 
                         <!-- Chat Input Box -->
                         <div class="chat-input-bar">
+                            <div id="chatError" role="alert" style="display:none;margin-bottom:8px;padding:8px 12px;border-radius:10px;background:#fde8e8;color:#b42318;font-size:13px;"></div>
                             <form id="chatForm" onsubmit="handleSendMessage(event)">
                                 <div class="chat-input-wrapper">
                                     <input type="text" id="chatInput" placeholder="Message <?php echo e($activePatient['full_name']); ?> (e.g. appointment updates, advice)..." autocomplete="off" required>
@@ -105,6 +106,7 @@ page_start('counselor', 'Consultation Messages', '/counselor/chat.php', 'Student
                                     </button>
                                 </div>
                             </form>
+                            <div style="font-size:12px;color:var(--muted);margin-top:8px;">Each account keeps its 3 most recent messages in this conversation. Older ones are removed automatically.</div>
                             <div class="chat-quick-replies">
                                 <span class="quick-chip" onclick="quickReply('Hello! How are you doing today?')">Greeting</span>
                                 <span class="quick-chip" onclick="quickReply('Please join our Google Meet call: <?php echo e($meetLink); ?>')">Send Google Meet link</span>
@@ -135,7 +137,7 @@ page_start('counselor', 'Consultation Messages', '/counselor/chat.php', 'Student
                     const res = await fetch('/api/chat.php?with=' + encodeURIComponent(targetUserId));
                     if (!res.ok) return;
                     const data = await res.json();
-                    renderMessages(data.messages || []);
+                    renderMessages((data.messages || []).sort((a, b) => new Date(a.created_at) - new Date(b.created_at)));
                 } catch (e) {
                     console.error('Error fetching chat messages', e);
                 }
@@ -159,7 +161,7 @@ page_start('counselor', 'Consultation Messages', '/counselor/chat.php', 'Student
                     const isMe = (m.sender_id === currentUserId);
                     const dt = new Date(m.created_at);
                     const timeStr = dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                    const dateStr = dt.toLocaleDateString([], { month: 'short', day: 'numeric' });
+                    const dateStr = dt.toLocaleDateString([], { month: 'short', day: 'numeric', year: dt.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
 
                     if (dateStr !== lastDate) {
                         html += `<div class="chat-date-divider"><span>${dateStr}</span></div>`;
@@ -193,27 +195,44 @@ page_start('counselor', 'Consultation Messages', '/counselor/chat.php', 'Student
             async function handleSendMessage(e) {
                 e.preventDefault();
                 const input = document.getElementById('chatInput');
+                const btn = document.getElementById('chatSendBtn');
                 const text = input.value.trim();
                 if (!text || !targetUserId) return;
 
-                input.value = '';
-                input.focus();
-
+                showChatError('');
+                btn.disabled = true;
                 try {
                     const res = await fetch('/api/chat.php', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            receiver_id: targetUserId,
-                            message: text
-                        })
+                        body: JSON.stringify({ receiver_id: targetUserId, message: text })
                     });
+                    const data = await res.json().catch(() => ({}));
                     if (res.ok) {
-                        loadMessages();
+                        input.value = '';
+                        await loadMessages();
+                    } else {
+                        showChatError(data.error || 'Message could not be sent. Please try again.');
                     }
-                } catch (e) {
-                    console.error('Failed to send message', e);
+                } catch (err) {
+                    console.error('Failed to send message', err);
+                    showChatError('Network problem. Your message was not sent.');
+                } finally {
+                    btn.disabled = false;
+                    input.focus();
                 }
+            }
+
+            function showChatError(msg) {
+                const box = document.getElementById('chatError');
+                if (!box) return;
+                box.textContent = msg;
+                box.style.display = msg ? 'block' : 'none';
+            }
+
+            function formatMessage(text) {
+                return escapeHtml(text).replace(/(https?:\/\/[^\s]+)/g,
+                    '<a href="$1" target="_blank" rel="noopener noreferrer" style="text-decoration:underline;color:inherit;font-weight:700;">$1</a>');
             }
 
             function escapeHtml(str) {
@@ -226,6 +245,7 @@ page_start('counselor', 'Consultation Messages', '/counselor/chat.php', 'Student
 
             // Initial load + periodic real-time sync every 3 seconds
             loadMessages();
-            setInterval(loadMessages, 3000);
+            setInterval(() => { if (!document.hidden) loadMessages(); }, 4000);
+            document.addEventListener('visibilitychange', () => { if (!document.hidden) loadMessages(); });
             </script>
 <?php page_end(); ?>

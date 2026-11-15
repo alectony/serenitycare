@@ -1,154 +1,121 @@
 <?php
+// Chat API. Every conversation lives in the Supabase table public.chat_messages.
+//   GET  /api/chat.php?with=<user-uuid>            -> { messages: [...] } oldest first (by date sent)
+//   POST /api/chat.php  {receiver_id, message}     -> saves the message
+// The database trigger keeps only each account's 3 newest messages per conversation.
 require_once __DIR__ . '/../includes/auth.php';
-require_once __DIR__ . '/../includes/audit.php';
+require_once __DIR__ . '/../includes/layout.php';   // is_uuid()
 
 header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-store');
 
-$token = get_user_token();
-if (!$token) {
-    http_response_code(401);
-    echo json_encode(['error' => 'Authentication required.']);
+function chat_json($status, array $payload) {
+    http_response_code($status);
+    echo json_encode($payload);
     exit;
 }
+
+/**
+ * REST call. Uses the server-side service key when it is set (works for normal AND OTP logins;
+ * safe because the caller was already verified below and every query is filtered by that user).
+ * Falls back to the user's own token + Row Level Security when no service key exists.
+ */
+function chat_rest($method, $table, $query = '', $body = null, $prefer = 'return=representation') {
+    global $token;
+    $key = sb_service_key();
+    if ($key === '') {
+        return sb_request($method, $table, $query, $body, $token, $prefer);
+    }
+    $c = get_supabase_config();
+    $r = sb_http($method, $c['url'] . '/rest/v1/' . $table . ($query !== '' ? '?' . $query : ''), [
+        'apikey: ' . $key,
+        'Authorization: Bearer ' . $key,
+        'Content-Type: application/json',
+        'Prefer: ' . $prefer,
+    ], $body);
+    return ['status' => $r['status'], 'data' => $r['data']];
+}
+
+// ---- Who is calling? (same checks as require_role, but answers in JSON) ----
+$token = get_user_token();
+if (!$token) chat_json(401, ['error' => 'Please log in again.']);
 
 $user = sb_get_user($token);
-if (!$user || empty($user['id'])) {
-    http_response_code(401);
-    echo json_encode(['error' => 'Invalid or expired session.']);
-    exit;
-}
+if (!$user || empty($user['id'])) chat_json(401, ['error' => 'Your session expired. Please log in again.']);
 
-$currentUserId = $user['id'];
-$profile = get_user_profile($currentUserId, $token);
-$currentUserName = $profile['full_name'] ?? 'User';
+$uid = $user['id'];
+$profile = get_user_profile($uid, $token);
+if (($profile['is_active'] ?? true) === false) chat_json(403, ['error' => 'This account is deactivated.']);
 
-function get_chat_file() {
-    $dir = __DIR__ . '/../includes/data';
-    if (!is_dir($dir)) {
-        @mkdir($dir, 0755, true);
-    }
-    return $dir . '/chat_messages.json';
+$role = $profile['role'] ?? 'patient';
+if (!in_array($role, ['patient', 'counselor'], true)) {
+    chat_json(403, ['error' => 'Chat is only available to patients and counselors.']);
 }
-
-function read_chat_messages() {
-    $file = get_chat_file();
-    if (!file_exists($file)) {
-        return [];
-    }
-    $c = file_get_contents($file);
-    return json_decode((string) $c, true) ?: [];
-}
-
-function save_chat_messages(array $messages) {
-    $file = get_chat_file();
-    // Keep last 1000 messages
-    if (count($messages) > 1000) {
-        $messages = array_slice($messages, -1000);
-    }
-    file_put_contents($file, json_encode($messages, JSON_PRETTY_PRINT));
-}
+$otherRole = ($role === 'patient') ? 'counselor' : 'patient';
 
 $method = $_SERVER['REQUEST_METHOD'];
 
+// ---------------------------------------------------------------- GET
 if ($method === 'GET') {
-    $withUserId = $_GET['with'] ?? '';
-    $all = read_chat_messages();
+    $with = $_GET['with'] ?? '';
+    if (!is_uuid($with)) chat_json(400, ['error' => 'Missing or invalid conversation partner.']);
 
-    if (!empty($_GET['threads'])) {
-        // Return active chat threads for current user
-        $threads = [];
-        foreach ($all as $m) {
-            $otherId = ($m['sender_id'] === $currentUserId) ? $m['receiver_id'] : (($m['receiver_id'] === $currentUserId) ? $m['sender_id'] : null);
-            if ($otherId) {
-                if (!isset($threads[$otherId]) || strtotime($m['created_at']) > strtotime($threads[$otherId]['last_time'])) {
-                    $threads[$otherId] = [
-                        'user_id'    => $otherId,
-                        'last_msg'   => $m['message'],
-                        'last_time'  => $m['created_at'],
-                        'unread'     => 0,
-                    ];
-                }
-                if ($m['receiver_id'] === $currentUserId && empty($m['is_read'])) {
-                    $threads[$otherId]['unread']++;
-                }
-            }
-        }
-        echo json_encode(['threads' => array_values($threads)]);
-        exit;
+    $pair = "or=(and(sender_id.eq.$uid,receiver_id.eq.$with),and(sender_id.eq.$with,receiver_id.eq.$uid))";
+    $r = chat_rest('GET', 'chat_messages',
+        "select=id,sender_id,receiver_id,message,is_read,created_at&$pair&order=created_at.asc&limit=50");
+
+    if ($r['status'] !== 200 || !is_array($r['data'])) {
+        error_log('chat GET failed: HTTP ' . $r['status'] . ' ' . substr(json_encode($r['data']), 0, 300));
+        chat_json(500, ['error' => 'Could not load messages.', 'code' => $r['data']['code'] ?? $r['status']]);
     }
 
-    if ($withUserId !== '') {
-        $conversation = [];
-        $dirty = false;
-        foreach ($all as &$m) {
-            if (($m['sender_id'] === $currentUserId && $m['receiver_id'] === $withUserId) ||
-                ($m['sender_id'] === $withUserId && $m['receiver_id'] === $currentUserId)) {
-                
-                // Mark received message as read
-                if ($m['receiver_id'] === $currentUserId && empty($m['is_read'])) {
-                    $m['is_read'] = true;
-                    $dirty = true;
-                }
-                $conversation[] = $m;
-            }
+    // mark what the partner sent me as read
+    foreach ($r['data'] as $m) {
+        if ($m['receiver_id'] === $uid && empty($m['is_read'])) {
+            chat_rest('PATCH', 'chat_messages', "receiver_id=eq.$uid&sender_id=eq.$with&is_read=eq.false",
+                ['is_read' => true], 'return=minimal');
+            break;
         }
-        if ($dirty) {
-            save_chat_messages($all);
-        }
-
-        echo json_encode(['messages' => $conversation]);
-        exit;
     }
-
-    echo json_encode(['messages' => []]);
-    exit;
+    chat_json(200, ['messages' => $r['data']]);
 }
 
+// ---------------------------------------------------------------- POST
 if ($method === 'POST') {
-    $raw = file_get_contents('php://input');
-    $payload = json_decode($raw, true) ?: $_POST;
+    // JSON-only: a cross-site HTML form cannot send this content type (basic CSRF defence)
+    if (stripos($_SERVER['CONTENT_TYPE'] ?? '', 'application/json') === false) {
+        chat_json(415, ['error' => 'Unsupported request.']);
+    }
+    $in = json_decode(file_get_contents('php://input'), true);
+    $receiver = is_array($in) ? ($in['receiver_id'] ?? '') : '';
+    $text = is_array($in) ? trim((string) ($in['message'] ?? '')) : '';
 
-    $receiverId = trim($payload['receiver_id'] ?? '');
-    $messageText = trim($payload['message'] ?? '');
-    $appointmentId = trim($payload['appointment_id'] ?? '');
+    if (!is_uuid($receiver) || $receiver === $uid) chat_json(400, ['error' => 'Invalid recipient.']);
+    $len = function_exists('mb_strlen') ? mb_strlen($text, 'UTF-8') : strlen($text);
+    if ($len < 1) chat_json(400, ['error' => 'Message is empty.']);
+    if ($len > 1000) chat_json(400, ['error' => 'Message is too long (max 1000 characters).']);
 
-    if ($receiverId === '' || $messageText === '') {
-        http_response_code(400);
-        echo json_encode(['error' => 'Receiver and message content are required.']);
-        exit;
+    // the recipient must exist, be active, and have the opposite role
+    $pr = chat_rest('GET', 'profiles', 'select=id,role,is_active&id=eq.' . urlencode($receiver));
+    $partner = ($pr['status'] === 200 && !empty($pr['data'][0])) ? $pr['data'][0] : null;
+    if (!$partner || ($partner['role'] ?? '') !== $otherRole || ($partner['is_active'] ?? true) === false) {
+        chat_json(403, ['error' => 'You can only message ' . $otherRole . 's.']);
     }
 
-    $newMessage = [
-        'id'             => bin2hex(random_bytes(12)),
-        'sender_id'      => $currentUserId,
-        'sender_name'    => $currentUserName,
-        'receiver_id'    => $receiverId,
-        'appointment_id' => $appointmentId ?: null,
-        'message'        => mb_substr($messageText, 0, 2000),
-        'is_read'        => false,
-        'created_at'     => date('c'),
-    ];
+    // sender_id always comes from the verified login, never from the browser
+    $r = chat_rest('POST', 'chat_messages', '', [
+        'sender_id'   => $uid,
+        'receiver_id' => $receiver,
+        'message'     => $text,
+    ]);
 
-    // 1. Try writing to Supabase table
-    sb_request('POST', 'chat_messages', '', $newMessage, $token);
-
-    // 2. Persist in local file store
-    $all = read_chat_messages();
-    $all[] = $newMessage;
-    save_chat_messages($all);
-
-    // 3. Trigger In-App Notification for Receiver
-    create_notification(
-        $receiverId,
-        'New Message from ' . $currentUserName,
-        mb_substr($messageText, 0, 100) . (strlen($messageText) > 100 ? '...' : ''),
-        'chat',
-        $token
-    );
-
-    echo json_encode(['success' => true, 'message' => $newMessage]);
-    exit;
+    if ($r['status'] === 201 || $r['status'] === 200) {
+        chat_json(201, ['ok' => true, 'message' => $r['data'][0] ?? null]);
+    }
+    error_log('chat POST failed: HTTP ' . $r['status'] . ' ' . substr(json_encode($r['data']), 0, 300));
+    $code = is_array($r['data']) ? ($r['data']['code'] ?? '') : '';
+    $hint = ($code === 'PGRST205' || $code === '42P01') ? ' (chat table missing: run chat_schema.sql in Supabase)' : '';
+    chat_json(500, ['error' => 'Could not send your message.' . $hint, 'code' => $code ?: $r['status']]);
 }
 
-http_response_code(405);
-echo json_encode(['error' => 'Method not allowed.']);
+chat_json(405, ['error' => 'Method not allowed.']);
