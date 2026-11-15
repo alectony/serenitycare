@@ -53,6 +53,10 @@ $todayCount = count(array_filter($all, fn($a) =>
 $pendingCount = count(array_filter($all, fn($a) => $a['status'] === 'pending'));
 $patientCount = count(array_unique(array_column($all, 'patient_id')));
 
+// Appointments per month (last 6 months, same helpers the admin dashboard uses)
+$months = month_buckets(6);
+$apptByMonth = count_by_month($all, 'scheduled_at', $months);
+
 // Prepare counselor profile initials for avatar display
 $fullName = $me['profile']['full_name'] ?? 'Ms. Elena Reyes';
 $nameParts = explode(' ', $fullName);
@@ -183,6 +187,11 @@ page_start('counselor', 'Dashboard', '/counselor/', greeting() . ', ' . $fullNam
                 </div>
 
                 <div class="stack">
+                    <div class="card">
+                        <div class="card-head"><h2>Appointments per month</h2><a class="link" href="/counselor/reports.php">Reports</a></div>
+                        <?php echo svg_columns(array_column($months, 'label'), $apptByMonth, 'Appointments per month'); ?>
+                    </div>
+
                     <div class="card">
                         <div class="card-head"><h2>Recent Records</h2><a class="link" href="/counselor/record.php">Add record</a></div>
                         <?php if (!$records): ?>
