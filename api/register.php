@@ -6,12 +6,14 @@ $success = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $fullName = trim($_POST['full_name'] ?? '');
-    $email = trim($_POST['email'] ?? '');
+    $email = strtolower(trim($_POST['email'] ?? ''));
     $password = $_POST['password'] ?? '';
     $gradeOrLevel = trim($_POST['grade_or_dept'] ?? '');
 
     if ($fullName === '' || $email === '' || $password === '') {
         $error = 'Please fill in all required fields.';
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL) || !preg_match('/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/', $email)) {
+        $error = 'Please enter a valid email address (e.g., student@school.edu.ph or name@gmail.com).';
     } elseif (strlen($password) < 8) {
         $error = 'Password must be at least 8 characters.';
     } else {

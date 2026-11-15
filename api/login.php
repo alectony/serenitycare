@@ -7,8 +7,7 @@ $error = '';
 $msg = '';
 $loginMode = $_GET['mode'] ?? ($_POST['login_mode'] ?? 'password');
 $otpStep = $_POST['otp_step'] ?? 'send';
-$email = trim($_POST['email'] ?? ($_GET['email'] ?? ''));
-$previewCode = '';
+$email = strtolower(trim($_POST['email'] ?? ($_GET['email'] ?? '')));
 
 if (isset($_GET['inactive'])) {
     $error = 'This account has been deactivated. Please contact an administrator.';
@@ -19,14 +18,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($otpStep === 'send') {
             if ($email === '') {
                 $error = 'Please enter your registered email address.';
+            } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $error = 'Please enter a valid email address (e.g., student@school.edu.ph or name@gmail.com).';
             } else {
                 $res = dispatch_otp($email, 'login');
                 if ($res['success']) {
                     $msg = $res['message'];
                     $otpStep = 'verify';
-                    if (!empty($res['code_preview'])) {
-                        $previewCode = $res['code_preview'];
-                    }
                 } else {
                     $error = $res['message'];
                 }
@@ -34,21 +32,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($otpStep === 'verify') {
             $otp = trim($_POST['otp'] ?? '');
             if ($email === '' || $otp === '') {
-                $error = 'Please enter both your email and the 6-digit OTP.';
+                $error = 'Please enter both your email and the verification code.';
                 $otpStep = 'verify';
             } else {
-                $valid = verify_local_otp($email, $otp, 'login');
-
-                // Try Supabase OTP verification if available
+                // Try Supabase OTP verification first (supports both 6 and 8 digit tokens)
+                $valid = false;
                 $sbToken = null;
                 $sbUser = null;
+
+                $sbRes = sb_verify_otp($email, $otp, 'email');
+                if (($sbRes['status'] === 200 || $sbRes['status'] === 201) && !empty($sbRes['data']['access_token'])) {
+                    $valid = true;
+                    $sbToken = $sbRes['data']['access_token'];
+                    $sbUser = $sbRes['data']['user'] ?? null;
+                }
+
+                // If Supabase didn't verify, try local OTP store
                 if (!$valid) {
-                    $sbRes = sb_verify_otp($email, $otp, 'email');
-                    if (($sbRes['status'] === 200 || $sbRes['status'] === 201) && !empty($sbRes['data']['access_token'])) {
-                        $valid = true;
-                        $sbToken = $sbRes['data']['access_token'];
-                        $sbUser = $sbRes['data']['user'] ?? null;
-                    }
+                    $valid = verify_local_otp($email, $otp, 'login');
                 }
 
                 if ($valid) {
@@ -168,13 +169,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="alert success"><?php echo htmlspecialchars($msg); ?></div>
         <?php endif; ?>
 
-        <?php if (!empty($previewCode)): ?>
-            <div class="search-alert" style="margin-bottom:16px;">
-                <strong>6-Digit OTP Code:</strong> <code style="font-size:16px;font-weight:700;letter-spacing:2px;"><?php echo htmlspecialchars($previewCode); ?></code>
-                <small style="display:block;margin-top:4px;color:var(--muted);">Valid for 10 minutes.</small>
-            </div>
-        <?php endif; ?>
-
         <?php if ($loginMode === 'otp'): ?>
             <!-- OTP Form -->
             <form method="POST" action="/login.php?mode=otp">
@@ -183,13 +177,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 <div class="form-group">
                     <label for="email">Email Address</label>
-                    <input type="email" id="email" name="email" required value="<?php echo htmlspecialchars($email); ?>" <?php echo $otpStep === 'verify' ? 'readonly' : ''; ?>>
+                    <input type="email" id="email" name="email" required placeholder="name@domain.edu" value="<?php echo htmlspecialchars($email); ?>" <?php echo $otpStep === 'verify' ? 'readonly' : ''; ?>>
                 </div>
 
                 <?php if ($otpStep === 'verify'): ?>
                     <div class="form-group">
-                        <label for="otp">Enter 6-Digit OTP</label>
-                        <input type="text" id="otp" name="otp" required maxlength="6" pattern="[0-9]{6}" placeholder="000000" autocomplete="one-time-code" style="letter-spacing:4px;font-size:18px;font-weight:700;text-align:center;">
+                        <label for="otp">Enter Verification Code (OTP)</label>
+                        <input type="text" id="otp" name="otp" required minlength="6" maxlength="8" pattern="[0-9]{6,8}" placeholder="6 or 8-digit code" autocomplete="one-time-code" style="letter-spacing:4px;font-size:18px;font-weight:700;text-align:center;">
+                        <small style="display:block;margin-top:6px;font-size:12px;color:var(--muted);text-align:center;">Please check your email inbox and spam folder for your code.</small>
                     </div>
                     <button type="submit" class="btn-primary" style="width:100%;">Verify &amp; Sign In</button>
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;font-size:13px;">

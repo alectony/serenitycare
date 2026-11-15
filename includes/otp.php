@@ -121,8 +121,7 @@ function dispatch_otp($email, $purpose = 'login') {
     @mail($email, $subject, $body, $headers);
 
     return [
-        'success'      => true,
-        'message'      => 'A 6-digit verification code has been dispatched to ' . htmlspecialchars($email) . '.',
-        'code_preview' => $code, // Displayed in development/test banner if mail server is offline
+        'success' => true,
+        'message' => 'A verification code has been dispatched to ' . htmlspecialchars($email) . '. Please check your email inbox (and spam folder).',
     ];
 }
