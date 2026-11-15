@@ -24,6 +24,14 @@ if ($path === '' || $path === 'index.php') {
 
 // Public pages that live next to this file, in /api
 $apiPages = ['login.php', 'register.php', 'logout.php', 'landing.php', 'forgot-password.php', 'chat.php', 'apply-counselor.php'];
+
+// Tolerant aliases for public URLs
+if (in_array($path, ['apply-counselor.php', 'apply-counselors.php', 'apply-counselor', 'apply-counselors', 'apply'], true)) {
+    $path = 'apply-counselor.php';
+} elseif (in_array($path, ['forgot-password', 'forgot.php', 'forgot'], true)) {
+    $path = 'forgot-password.php';
+}
+
 if (in_array($path, $apiPages, true)) {
     $target = __DIR__ . '/' . $path;
     if (is_file($target)) {
