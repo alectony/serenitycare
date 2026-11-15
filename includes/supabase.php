@@ -45,7 +45,12 @@ function sb_http($method, $endpoint, array $headers, $body = null) {
     $ch = curl_init($endpoint);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, strtoupper($method));
-    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+    // accept both ['apikey: x'] and ['apikey' => 'x'] styles
+    $normalized = [];
+    foreach ($headers as $k => $v) {
+        $normalized[] = is_string($k) ? $k . ': ' . $v : $v;
+    }
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $normalized);
     curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
     curl_setopt($ch, CURLOPT_TIMEOUT, 20);
     curl_setopt($ch, CURLOPT_NOSIGNAL, 1);
@@ -96,17 +101,10 @@ function sb_register($email, $password, $fullName = '', array $extra = []) {
 
 /** Returns the auth user for a token, or null if the token is invalid/expired. */
 function sb_get_user($token) {
+    // Old home-made "otp_<id>_..." tokens were never verified, so anyone who knew a user id
+    // could forge one. They are no longer accepted; OTP logins now get a real Supabase session.
     if (is_string($token) && str_starts_with($token, 'otp_')) {
-        $parts = explode('_', $token);
-        $uid = $parts[1] ?? '';
-        if (is_uuid($uid)) {
-            return [
-                'id' => $uid,
-                'aud' => 'authenticated',
-                'role' => 'authenticated',
-                'email' => '',
-            ];
-        }
+        return null;
     }
     $c = get_supabase_config();
     $r = sb_http('GET', $c['url'] . '/auth/v1/user', [
@@ -277,5 +275,37 @@ function sb_update_password($token, $newPassword) {
         'password' => $newPassword,
     ]);
     return $r['status'] === 200;
+}
+/**
+ * Server-side only: after OUR OTP check passed, start a REAL Supabase session for that user
+ * (same kind of token as a password login). Returns the session array or ['error' => ...].
+ */
+function sb_service_create_session($email) {
+    $key = sb_service_key();
+    if ($key === '') {
+        return ['error' => 'SUPABASE_SERVICE_ROLE_KEY is not set on the server.'];
+    }
+    $c = get_supabase_config();
+    $g = sb_http('POST', $c['url'] . '/auth/v1/admin/generate_link', [
+        'apikey: ' . $key,
+        'Authorization: Bearer ' . $key,
+        'Content-Type: application/json',
+    ], ['type' => 'magiclink', 'email' => $email]);
+    $hash = is_array($g['data']) ? ($g['data']['hashed_token'] ?? ($g['data']['properties']['hashed_token'] ?? '')) : '';
+    if ($g['status'] !== 200 || $hash === '') {
+        error_log('sb_service_create_session generate_link failed: HTTP ' . $g['status'] . ' ' . substr(json_encode($g['data']), 0, 300));
+        return ['error' => 'Could not start your session. Please try again.'];
+    }
+    foreach (['magiclink', 'email'] as $type) {
+        $v = sb_http('POST', $c['url'] . '/auth/v1/verify', [
+            'apikey: ' . $c['anon_key'],
+            'Content-Type: application/json',
+        ], ['type' => $type, 'token_hash' => $hash]);
+        if ($v['status'] === 200 && is_array($v['data']) && !empty($v['data']['access_token'])) {
+            return $v['data'];
+        }
+    }
+    error_log('sb_service_create_session verify failed');
+    return ['error' => 'Could not start your session. Please try again.'];
 }
 ?>

@@ -43,38 +43,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Verify OTP
             $valid = verify_local_otp($email, $otp, 'recovery');
             
-            // Also check Supabase OTP verification if available
-            if (!$valid) {
-                $sbCheck = sb_verify_otp($email, $otp, 'recovery');
-                if ($sbCheck['status'] === 200 || $sbCheck['status'] === 201) {
-                    $valid = true;
-                }
-            }
 
             if ($valid) {
                 // Find user by email
                 $c = get_supabase_config();
-                $find = sb_http('GET', $c['url'] . '/rest/v1/profiles?select=id,full_name,role&email=eq.' . urlencode($email), [
-                    'apikey' => $c['anon_key'],
-                ]);
-
-                $userId = $find['data'][0]['id'] ?? null;
+                $prof = otp_find_profile($email);
+                $userId = $prof['id'] ?? null;
                 $serviceKey = sb_service_key();
 
                 $resetSuccess = false;
                 if ($userId && $serviceKey) {
                     // Update user password via admin API
                     $upd = sb_http('PUT', $c['url'] . '/auth/v1/admin/users/' . urlencode($userId), [
-                        'apikey'        => $serviceKey,
-                        'Authorization' => 'Bearer ' . $serviceKey,
-                        'Content-Type'  => 'application/json',
+                        'apikey: ' . $serviceKey,
+                        'Authorization: Bearer ' . $serviceKey,
+                        'Content-Type: application/json',
                     ], ['password' => $newPass]);
                     if ($upd['status'] === 200) {
                         $resetSuccess = true;
                     }
                 }
 
-                if ($resetSuccess || $valid) {
+                if ($resetSuccess) {
                     $msg = 'Password reset successfully! You can now log in with your new password.';
                     $step = 'done';
                     audit_log(null, $userId ?: 'guest', $email, 'password_reset_via_otp', 'user', $userId ?: $email);

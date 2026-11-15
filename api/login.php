@@ -34,38 +34,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($email === '' || $otp === '') {
                 $error = 'Please enter both your email and the verification code.';
                 $otpStep = 'verify';
+            } elseif (!verify_local_otp($email, $otp, 'login')) {
+                $error = 'Invalid or expired code. Please try again or request a new one.';
+                $otpStep = 'verify';
             } else {
-                // Try Supabase OTP verification first (supports both 6 and 8 digit tokens)
-                $valid = false;
-                $sbToken = null;
-                $sbUser = null;
-
-                $sbRes = sb_verify_otp($email, $otp, 'email');
-                if (($sbRes['status'] === 200 || $sbRes['status'] === 201) && !empty($sbRes['data']['access_token'])) {
-                    $valid = true;
-                    $sbToken = $sbRes['data']['access_token'];
-                    $sbUser = $sbRes['data']['user'] ?? null;
-                }
-
-                // If Supabase didn't verify, try local OTP store
-                if (!$valid) {
-                    $valid = verify_local_otp($email, $otp, 'login');
-                }
-
-                if ($valid) {
-                    // Look up profile by email
-                    $c = get_supabase_config();
-                    $find = sb_http('GET', $c['url'] . '/rest/v1/profiles?email=eq.' . urlencode($email), [
-                        'apikey' => $c['anon_key'],
-                    ]);
-                    $profile = ($find['status'] === 200 && !empty($find['data'][0])) ? $find['data'][0] : null;
-
-                    if ($profile && ($profile['is_active'] ?? true) === false) {
-                        $error = 'This account has been deactivated. Please contact an administrator.';
+                $profile = otp_find_profile($email);
+                if (!$profile) {
+                    $error = 'No registered SerenityCare account found with this email.';
+                    $otpStep = 'send';
+                } elseif (($profile['is_active'] ?? true) === false) {
+                    $error = 'This account has been deactivated. Please contact an administrator.';
+                    $otpStep = 'send';
+                } else {
+                    // real Supabase session (same as a password login), so permissions work normally
+                    $sess = sb_service_create_session($email);
+                    if (empty($sess['access_token'])) {
+                        $error = $sess['error'] ?? 'Could not start your session. Please try again.';
                         $otpStep = 'send';
-                    } elseif ($profile) {
-                        // Generate or use token
-                        $token = $sbToken ?: ('otp_' . $profile['id'] . '_' . bin2hex(random_bytes(16)));
+                    } else {
+                        $token = $sess['access_token'];
                         setcookie('supabase_token', $token, [
                             'expires'  => time() + 3600 * 2,
                             'path'     => '/',
@@ -76,13 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         audit_log($token, $profile['id'], $profile['full_name'] ?? $email, 'login_otp', 'user', $profile['id']);
                         header('Location: ' . home_for_role($profile['role'] ?? 'patient'));
                         exit;
-                    } else {
-                        $error = 'No registered SerenityCare account found with this email.';
-                        $otpStep = 'send';
                     }
-                } else {
-                    $error = 'Invalid or expired OTP code. Please try again.';
-                    $otpStep = 'verify';
                 }
             }
         }
