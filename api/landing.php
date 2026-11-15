@@ -234,7 +234,7 @@ if ($token) {
                                 <li>Supportive, multidisciplinary care environment</li>
                                 <li>Direct impact on youth mental health &amp; growth</li>
                             </ul>
-                            <a href="/apply-counselor.php" class="postit-btn">
+                            <a href="/apply-counselors.php" class="postit-btn">
                                 📋 Apply &amp; Submit Resume
                             </a>
                         </div>
