@@ -21,7 +21,6 @@ $dx = sb_request('GET', 'diagnoses',
     'select=diagnosis,recommendations,created_at,counselor:profiles!counselor_id(full_name)'
     . '&patient_id=eq.' . urlencode($uid) . '&shared_with_patient=eq.true&order=created_at.desc&limit=5', null, $token);
 $results = ($dx['status'] === 200 && is_array($dx['data'])) ? $dx['data'] : [];
-$unread = get_notifications($uid, $token, 100, true);
 
 $name = $me['profile']['full_name'] ?? 'there';
 $rightContent = patient_header($uid, $token);
@@ -35,7 +34,6 @@ page_start('patient', 'Dashboard', '/patient/', greeting() . ', ' . $name, null,
                     $upcoming ? 'with ' . ($upcoming[0]['counselor']['full_name'] ?? 'your counselor') : 'Book a session below', 'calendar'); ?>
                 <?php echo stat_card('Upcoming sessions', count($upcoming), 'Pending or confirmed', 'clock'); ?>
                 <?php echo stat_card('Shared results', count($results), 'Visible only to you', 'file'); ?>
-                <?php echo stat_card('Unread alerts', count($unread), 'New notifications', 'bell'); ?>
             </div>
 
             <div class="content-grid">
@@ -43,16 +41,51 @@ page_start('patient', 'Dashboard', '/patient/', greeting() . ', ' . $name, null,
                     <div class="card">
                         <div class="card-head"><div><h2>Upcoming Appointments</h2><p class="card-sub">Your next sessions with counselors</p></div><a class="link" href="/patient/appointment.php">View all</a></div>
                         <table class="data-table">
-                            <thead><tr><th>Date / Time</th><th>Counselor</th><th>Reason</th><th>Status</th></tr></thead>
+                            <thead><tr><th>Date / Time</th><th>Counselor</th><th>Details</th><th>Status</th><th>Action</th></tr></thead>
                             <tbody>
                             <?php if (!$upcoming): ?>
-                                <tr><td colspan="4">No upcoming appointments.</td></tr>
-                            <?php else: foreach (array_slice($upcoming, 0, 5) as $a): $ts = strtotime($a['scheduled_at']); ?>
+                                <tr><td colspan="5">No upcoming appointments.</td></tr>
+                            <?php else: foreach (array_slice($upcoming, 0, 5) as $a): 
+                                $ts = strtotime($a['scheduled_at']);
+                                $rawR = $a['reason'] ?? '-';
+                                $isOnline = false;
+                                $meetUrl = '';
+                                $displayR = $rawR;
+                                if (preg_match('/\[Online Video Call - Google Meet:\s*(https:\/\/meet\.google\.com\/[a-z0-9-]+)\]\s*(.*)/is', $rawR, $m)) {
+                                    $isOnline = true;
+                                    $meetUrl = trim($m[1]);
+                                    $displayR = trim($m[2]);
+                                } elseif (stripos($rawR, 'google meet') !== false || stripos($rawR, 'online') !== false) {
+                                    $isOnline = true;
+                                    if (preg_match('/(https:\/\/meet\.google\.com\/[a-z0-9-]+)/i', $rawR, $m)) {
+                                        $meetUrl = $m[1];
+                                    }
+                                } elseif (preg_match('/\[In-Person Consultation[^\]]*\]\s*(.*)/is', $rawR, $m)) {
+                                    $displayR = trim($m[1]);
+                                }
+                            ?>
                                 <tr>
                                     <td><div class="when"><span class="date-chip"><small><?php echo e(strtoupper(date('M', $ts))); ?></small><strong><?php echo e(date('d', $ts)); ?></strong></span><span><?php echo e(date('g:i A', $ts)); ?></span></div></td>
                                     <td><strong><?php echo e($a['counselor']['full_name'] ?? 'Counselor'); ?></strong></td>
-                                    <td><?php echo e($a['reason'] ?? '-'); ?></td>
+                                    <td>
+                                        <div style="font-size:11.5px;margin-bottom:2px;">
+                                            <?php if ($isOnline): ?>
+                                                <span class="status pending" style="padding:1px 6px;font-size:10.5px;"><?php echo icon('video'); ?> Google Meet</span>
+                                            <?php else: ?>
+                                                <span class="status active" style="padding:1px 6px;font-size:10.5px;"><?php echo icon('users'); ?> In-Person</span>
+                                            <?php endif; ?>
+                                        </div>
+                                        <span style="font-size:12.5px;color:var(--ink-secondary);"><?php echo e($displayR); ?></span>
+                                    </td>
                                     <td><?php echo status_badge($a['status']); ?></td>
+                                    <td>
+                                        <div style="display:flex;align-items:center;gap:4px;">
+                                            <?php if ($a['status'] === 'confirmed' && $isOnline && !empty($meetUrl)): ?>
+                                                <a href="<?php echo e($meetUrl); ?>" target="_blank" rel="noopener" class="btn-sm btn-success-sm" title="Join Video Session"><?php echo icon('video'); ?> Meet</a>
+                                            <?php endif; ?>
+                                            <a href="/patient/print-appointment.php?id=<?php echo e($a['id']); ?>" target="_blank" class="btn-sm" title="Print Slip"><?php echo icon('printer'); ?></a>
+                                        </div>
+                                    </td>
                                 </tr>
                             <?php endforeach; endif; ?>
                             </tbody>
@@ -67,7 +100,7 @@ page_start('patient', 'Dashboard', '/patient/', greeting() . ', ' . $name, null,
 
                 <div class="stack">
                     <div class="card">
-                        <div class="card-head"><h2>Latest Results</h2><a class="link" href="/patient/results.php">View all</a></div>
+                        <div class="card-head"><h2>Latest Results</h2></div>
                         <?php if (!$results): ?>
                             <p class="card-sub">No results have been shared with you yet.</p>
                         <?php else: foreach ($results as $r): ?>
@@ -78,20 +111,6 @@ page_start('patient', 'Dashboard', '/patient/', greeting() . ', ' . $name, null,
                             </div>
                         <?php endforeach; endif; ?>
                         <div class="note-box"><strong>Your privacy</strong><small>Only you and your counselor can see these records.</small></div>
-                        <div class="card">
-    <div class="card-head">
-        <div><h2>Notifications</h2><p class="card-sub"><?php echo count($unread); ?> unread</p></div>
-        <a class="link" href="/patient/notification.php">See all</a>
-    </div>
-    <?php if (!$unread): ?>
-        <p class="card-sub">You are all caught up.</p>
-    <?php else: foreach (array_slice($unread, 0, 3) as $n): ?>
-        <div class="result-item">
-            <strong><?php echo e($n['title']); ?></strong>
-            <small><?php echo e($n['message']); ?></small>
-        </div>
-    <?php endforeach; endif; ?>
-</div>
                     </div>
                 </div>
             </div>

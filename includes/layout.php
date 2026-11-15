@@ -56,10 +56,28 @@ function get_counselor_patients($uid, $token) {
 
 // Notifications of one user (newest first). Returns [] on error.
 function get_notifications($uid, $token, $limit = 50, $onlyUnread = false) {
+    if (!$uid) return [];
     $q = 'select=id,title,message,type,is_read,created_at&user_id=eq.' . urlencode($uid)
        . ($onlyUnread ? '&is_read=eq.false' : '')
        . '&order=created_at.desc&limit=' . (int) $limit;
     $r = sb_request('GET', 'notifications', $q, null, $token);
+    if ($r['status'] === 200 && is_array($r['data']) && count($r['data']) > 0) {
+        return $r['data'];
+    }
+    // Fallback to local storage if remote table is empty or unmigrated
+    $file = __DIR__ . '/data/notifications.json';
+    if (file_exists($file)) {
+        $all = json_decode(file_get_contents($file), true) ?: [];
+        $out = [];
+        foreach (array_reverse($all) as $n) {
+            if ($n['user_id'] === $uid) {
+                if ($onlyUnread && !empty($n['is_read'])) continue;
+                $out[] = $n;
+                if (count($out) >= $limit) break;
+            }
+        }
+        return $out;
+    }
     return ($r['status'] === 200 && is_array($r['data'])) ? $r['data'] : [];
 }
 
@@ -126,6 +144,10 @@ function icon($name) {
         'sun'       => '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>',
         'moon'      => '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>',
         'sparkles'  => '<path d="m12 3 1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3Z"/>',
+        'message'   => '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+        'printer'   => '<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>',
+        'video'     => '<polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>',
+        'link'      => '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
     ];
     $p = $paths[$name] ?? $paths['dashboard'];
     return '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . $p . '</svg>';
@@ -136,6 +158,22 @@ function theme_toggle_button() {
         . '<svg class="icon icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>'
         . '<svg class="icon icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>'
         . '</button>';
+}
+
+function notification_bell_button($role) {
+    if (!in_array($role, ['patient', 'counselor'], true)) return '';
+    $uid = $GLOBALS['current_user_id'] ?? null;
+    $token = $GLOBALS['current_token'] ?? null;
+    $count = 0;
+    if ($uid && function_exists('get_unread_notification_count')) {
+        $count = get_unread_notification_count($uid, $token);
+    }
+    $href = '/' . $role . '/notification.php';
+    $badge = $count > 0 ? '<span class="notif-badge-pill">' . ($count > 9 ? '9+' : $count) . '</span>' : '';
+    return '<a href="' . e($href) . '" class="top-bar-icon-btn" title="Notifications" aria-label="Notifications">'
+        . icon('bell')
+        . $badge
+        . '</a>';
 }
 
 function skeleton_demo_markup() {
@@ -174,23 +212,23 @@ function nav_for($role) {
         'counselor' => [
             '/counselor/'                 => ['Dashboard', 'dashboard'],
             '/counselor/schedule.php'     => ['My Schedule', 'calendar'],
-            '/counselor/appointments.php' => ['All Appointments', 'list'],
-            '/counselor/requests.php'     => ['Appointment Requests', 'bell'],
+            '/counselor/requests.php'     => ['Appointment Requests', 'clock'],
+            '/counselor/chat.php'         => ['Consultation Chat', 'message'],
             '/counselor/patients.php'     => ['Patient List', 'users'],
             '/counselor/record.php'       => ['Patient Records', 'file'],
             '/counselor/availability.php' => ['Availability', 'clock'],
-            '/counselor/reports.php'      => ['Reports & Export', 'chart'],
+            '/counselor/notification.php' => ['Notifications', 'bell'],
             '/counselor/profile.php'      => ['My Profile', 'user'],
             '/counselor/settings.php'     => ['Settings', 'settings'],
         ],
         'patient' => [
             '/patient/'                   => ['Dashboard', 'dashboard'],
             '/patient/appointment.php'    => ['Appointments', 'calendar'],
+            '/patient/chat.php'           => ['Messages', 'message'],
+            '/patient/Diagnostic and result.php' => ['Diagnosis & Results', 'file'],
+            '/patient/notification.php'   => ['Notifications', 'bell'],
             '/patient/profile.php'        => ['My Profile', 'user'],
             '/patient/settings.php'       => ['Settings', 'settings'],
-            '/patient/results.php'        => ['Diagnosis & Results', 'file'],
-            '/patient/notification.php'   => ['Notifications', 'bell'],
-            '/patient/session.php'      => ['Session Summaries', 'list'],
         ],
         'admin' => [
             '/admin/'                     => ['Dashboard', 'dashboard'],
@@ -257,6 +295,7 @@ function page_start($role, $title, $current, $heading = null, $subtitle = null, 
                     <?php if ($rightContent !== null): ?>
                         <?php echo $rightContent; ?>
                     <?php endif; ?>
+                    <?php echo notification_bell_button($role); ?>
                     <?php echo theme_toggle_button(); ?>
                 </div>
             </header>

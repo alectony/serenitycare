@@ -70,11 +70,15 @@ function require_role($roles) {
         header('Location: ' . home_for_role($role));   // send them to their own area
         exit;
     }
+    $resolvedId = $user['id'] ?? ($profile['id'] ?? null);
+    $GLOBALS['current_user_id'] = $resolvedId;
+    $GLOBALS['current_token']   = $token;
+
     return [
         'token'   => $token,
         'user'    => $user,
         'profile' => $profile,
         'role'    => $role,
-        'id'      => $user['id'] ?? ($profile['id'] ?? null),
+        'id'      => $resolvedId,
     ];
 }

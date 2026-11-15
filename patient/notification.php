@@ -2,13 +2,17 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/layout.php';
 
-$me    = require_role('patient');
-$uid   = $me['user']['id'];
-$token = $me['token'];
+/* ---- AUTH: kopyahin dito ang eksaktong unang lines ng patient/appointment.php ----
+   (kung paano nakukuha ang $uid at $token ng logged-in na patient).
+   Halimbawa lang ang nasa baba; palitan kung iba ang function name sa auth.php. */
+$user  = require_role('patient');
+$uid   = $user['user']['id'] ?? ($user['id'] ?? null);
+$token = $user['token'];
+/* ------------------------------------------------------------------------------ */
 
 $filter = ($_GET['filter'] ?? 'all') === 'unread' ? 'unread' : 'all';
 
-/* ---- Actions (POST, then redirect) ---- */
+/* ---- Actions (POST, tapos redirect) ---- */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && csrf_valid()) {
     $action = $_POST['action'] ?? '';
     $id     = $_POST['id'] ?? '';
@@ -29,9 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && csrf_valid()) {
 $items  = get_notifications($uid, $token, 50, $filter === 'unread');
 $unread = count(get_notifications($uid, $token, 100, true));
 
-page_start('patient', 'Notifications', '/patient/notification.php', 'Notifications',
-    $unread ? $unread . ' unread' : 'You are all caught up.', patient_header($uid, $token));
-echo patient_search_modal($token);
+page_start('patient', 'Notifications', '/patient/notification.php', 'Notifications', $unread . ' unread');
 ?>
 <section class="card">
   <div class="card-head">
@@ -49,7 +51,7 @@ echo patient_search_modal($token);
   </div>
 
   <?php if (!$items): ?>
-    <p class="empty"><?= $filter === 'unread' ? 'No unread notifications.' : 'No notifications yet. Updates about your appointments and results will show up here.' ?></p>
+    <p class="empty">No notifications to show.</p>
   <?php else: ?>
     <div class="request-list">
       <?php foreach ($items as $n): ?>

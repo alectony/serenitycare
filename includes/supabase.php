@@ -96,6 +96,18 @@ function sb_register($email, $password, $fullName = '', array $extra = []) {
 
 /** Returns the auth user for a token, or null if the token is invalid/expired. */
 function sb_get_user($token) {
+    if (is_string($token) && str_starts_with($token, 'otp_')) {
+        $parts = explode('_', $token);
+        $uid = $parts[1] ?? '';
+        if (is_uuid($uid)) {
+            return [
+                'id' => $uid,
+                'aud' => 'authenticated',
+                'role' => 'authenticated',
+                'email' => '',
+            ];
+        }
+    }
     $c = get_supabase_config();
     $r = sb_http('GET', $c['url'] . '/auth/v1/user', [
         'apikey: ' . $c['anon_key'],
@@ -112,11 +124,15 @@ function sb_request($method, $table, $query = '', $body = null, $userToken = nul
     $c = get_supabase_config();
     $endpoint = $c['url'] . '/rest/v1/' . $table . ($query !== '' ? '?' . $query : '');
 
+    $authHeader = ($userToken && !str_starts_with($userToken, 'otp_'))
+        ? 'Authorization: Bearer ' . $userToken
+        : 'Authorization: Bearer ' . $c['anon_key'];
+
     $r = sb_http($method, $endpoint, [
         'apikey: ' . $c['anon_key'],
         'Content-Type: application/json',
         'Prefer: ' . $prefer,
-        'Authorization: Bearer ' . ($userToken ?: $c['anon_key']),
+        $authHeader,
     ], $body);
 
     return ['status' => $r['status'], 'data' => $r['data']];
@@ -204,4 +220,62 @@ function sb_service_set_ban($userId, $banned) {
         'Content-Type: application/json',
     ], ['ban_duration' => $banned ? '876000h' : 'none']);
     return $r['status'] >= 200 && $r['status'] < 300;
-}?>
+}
+
+/**
+ * Send a 6-digit OTP to the user's email via Supabase Auth
+ */
+function sb_send_otp($email) {
+    $c = get_supabase_config();
+    return sb_http('POST', $c['url'] . '/auth/v1/otp', [
+        'Content-Type: application/json',
+        'apikey: ' . $c['anon_key'],
+    ], [
+        'email' => $email,
+        'create_user' => false,
+    ]);
+}
+
+/**
+ * Verify an email OTP code or recovery token via Supabase Auth
+ */
+function sb_verify_otp($email, $token, $type = 'email') {
+    $c = get_supabase_config();
+    return sb_http('POST', $c['url'] . '/auth/v1/verify', [
+        'Content-Type: application/json',
+        'apikey: ' . $c['anon_key'],
+    ], [
+        'type' => $type,
+        'email' => $email,
+        'token' => $token,
+    ]);
+}
+
+/**
+ * Request password recovery email via Supabase Auth
+ */
+function sb_recover_password($email) {
+    $c = get_supabase_config();
+    return sb_http('POST', $c['url'] . '/auth/v1/recover', [
+        'Content-Type: application/json',
+        'apikey: ' . $c['anon_key'],
+    ], [
+        'email' => $email,
+    ]);
+}
+
+/**
+ * Update authenticated user's password
+ */
+function sb_update_password($token, $newPassword) {
+    $c = get_supabase_config();
+    $r = sb_http('PUT', $c['url'] . '/auth/v1/user', [
+        'Content-Type: application/json',
+        'apikey: ' . $c['anon_key'],
+        'Authorization: Bearer ' . $token,
+    ], [
+        'password' => $newPassword,
+    ]);
+    return $r['status'] === 200;
+}
+?>
