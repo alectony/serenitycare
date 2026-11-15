@@ -50,6 +50,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'audit_retention'     => (string) $auditRet,
             'patient_reg_mode'    => $regMode,
             'emergency_banner'    => $emgBanner,
+            'otp_provider'        => in_array($_POST['otp_provider'] ?? '', ['supabase', 'gmail_smtp', 'local_mock'], true) ? $_POST['otp_provider'] : 'supabase',
+            'gmail_sender_email'  => trim($_POST['gmail_sender_email'] ?? ''),
+            'gmail_app_password'  => trim($_POST['gmail_app_password'] ?? ''),
+            'gmail_smtp_host'     => trim($_POST['gmail_smtp_host'] ?? 'smtp.gmail.com'),
+            'gmail_smtp_port'     => (string) ((int) ($_POST['gmail_smtp_port'] ?? 587)),
+            'google_meet_domain'  => trim($_POST['google_meet_domain'] ?? 'meet.google.com'),
         ];
 
         $rows = [];
@@ -83,6 +89,7 @@ page_start('admin', 'System Settings', '/admin/settings.php', 'System Settings',
                     <button type="button" class="settings-tab-btn" data-target="tab-appearance"><?php echo icon('sparkles'); ?> Appearance &amp; UI</button>
                     <button type="button" class="settings-tab-btn" data-target="tab-security"><?php echo icon('shield'); ?> Security &amp; Access</button>
                     <button type="button" class="settings-tab-btn" data-target="tab-notifications"><?php echo icon('bell'); ?> Notifications</button>
+                    <button type="button" class="settings-tab-btn" data-target="tab-api"><?php echo icon('link'); ?> Gmail &amp; OTP API</button>
                 </div>
 
                 <form method="POST" action="/admin/settings.php">
@@ -282,6 +289,68 @@ page_start('admin', 'System Settings', '/admin/settings.php', 'System Settings',
                                         <input type="checkbox" name="sms_reminders" value="1"<?php echo ($settings['sms_reminders'] ?? '0') === '1' ? ' checked' : ''; ?>>
                                         <span class="switch-slider"></span>
                                     </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab 5: Gmail, OTP & Video API Configuration -->
+                    <div id="tab-api" class="settings-section-pane" style="display:none;">
+                        <div class="settings-card">
+                            <div class="settings-card-header">
+                                <h3>Gmail SMTP &amp; OTP Authentication API</h3>
+                                <p>Configure email delivery for One-Time PIN (OTP) login codes and Google Meet integration.</p>
+                            </div>
+
+                            <div class="settings-row">
+                                <div class="settings-info">
+                                    <div class="settings-title">Authentication &amp; OTP Engine</div>
+                                    <p class="settings-desc">Choose whether OTP recovery and verification codes are handled via Supabase Auth or direct Gmail SMTP.</p>
+                                </div>
+                                <div class="settings-action" style="min-width: 220px;">
+                                    <select name="otp_provider">
+                                        <option value="supabase" <?php echo ($settings['otp_provider'] ?? '') === 'supabase' ? 'selected' : ''; ?>>Supabase Auth OTP (Default)</option>
+                                        <option value="gmail_smtp" <?php echo ($settings['otp_provider'] ?? '') === 'gmail_smtp' ? 'selected' : ''; ?>>Gmail SMTP (Direct Dispatch)</option>
+                                        <option value="local_mock" <?php echo ($settings['otp_provider'] ?? '') === 'local_mock' ? 'selected' : ''; ?>>Local Simulation (Sandbox Mode)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-row" style="margin-top: 14px;">
+                                <div class="field grow">
+                                    <label>Gmail Sender Email Address</label>
+                                    <input type="email" name="gmail_sender_email" value="<?php echo e($settings['gmail_sender_email'] ?? ''); ?>" placeholder="counseling.office@institution.edu">
+                                    <small class="form-hint">The authorized Gmail or Google Workspace address used as the FROM header.</small>
+                                </div>
+                                <div class="field grow">
+                                    <label>Gmail App Password / Token</label>
+                                    <input type="password" name="gmail_app_password" value="<?php echo e($settings['gmail_app_password'] ?? ''); ?>" placeholder="16-character Google App Password">
+                                    <small class="form-hint">Generated in Google Account &rarr; Security &rarr; 2-Step Verification &rarr; App passwords.</small>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="field grow">
+                                    <label>SMTP Host</label>
+                                    <input type="text" name="gmail_smtp_host" value="<?php echo e($settings['gmail_smtp_host'] ?? 'smtp.gmail.com'); ?>" placeholder="smtp.gmail.com">
+                                </div>
+                                <div class="field grow" style="max-width: 140px;">
+                                    <label>SMTP Port</label>
+                                    <input type="number" name="gmail_smtp_port" value="<?php echo e($settings['gmail_smtp_port'] ?? '587'); ?>" placeholder="587">
+                                </div>
+                                <div class="field grow">
+                                    <label>Google Meet Workspace Domain</label>
+                                    <input type="text" name="google_meet_domain" value="<?php echo e($settings['google_meet_domain'] ?? 'meet.google.com'); ?>" placeholder="meet.google.com">
+                                </div>
+                            </div>
+
+                            <div class="settings-row" style="margin-top: 10px;">
+                                <div class="settings-info">
+                                    <div class="settings-title">Messaging &amp; Consultation Chat API</div>
+                                    <p class="settings-desc">Integrated JSON REST endpoint active at <code>/chat.php</code> with auto-dispatch notifications and JSON failover.</p>
+                                </div>
+                                <div class="settings-action">
+                                    <span class="status active">Active &bull; REST API Ready</span>
                                 </div>
                             </div>
                         </div>

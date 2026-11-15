@@ -15,10 +15,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (csrf_valid() && is_uuid($id) && in_array($action, ['approve', 'decline'], true)) {
         $status = $action === 'approve' ? 'confirmed' : 'declined';
+        
+        // Fetch existing appointment details
+        $curRes = sb_request('GET', 'appointments', 'select=id,patient_id,scheduled_at,reason&id=eq.' . urlencode($id), null, $token);
+        $cur = ($curRes['status'] === 200 && !empty($curRes['data'][0])) ? $curRes['data'][0] : null;
+
+        $updatePayload = ['status' => $status];
+        $meetLink = '';
+        if ($cur && $action === 'approve') {
+            $rText = $cur['reason'] ?? '';
+            if (stripos($rText, 'online') !== false || stripos($rText, 'google meet') !== false) {
+                if (!preg_match('/(https:\/\/meet\.google\.com\/[a-z0-9-]+)/i', $rText, $m)) {
+                    $meetLink = generate_google_meet_link($cur['patient_id'] . $uid . time());
+                    $updatePayload['reason'] = '[Online Video Call - Google Meet: ' . $meetLink . '] ' . $rText;
+                } else {
+                    $meetLink = $m[1];
+                }
+            }
+        }
+
         sb_request('PATCH', 'appointments',
             'id=eq.' . urlencode($id) . '&counselor_id=eq.' . urlencode($uid) . '&status=eq.pending',
-            ['status' => $status], $token);
+            $updatePayload, $token);
         audit_from($me, $action === 'approve' ? 'appointment_confirmed' : 'appointment_declined', 'appointment', $id);
+
+        // Notify student of decision
+        if ($cur && !empty($cur['patient_id'])) {
+            $title = $action === 'approve' ? 'Appointment Confirmed!' : 'Appointment Declined';
+            $msg = $action === 'approve'
+                ? 'Your counseling session on ' . fmt_dt($cur['scheduled_at']) . ' has been confirmed.' . ($meetLink ? ' Join online with Google Meet: ' . $meetLink : ' Venue: Guidance Office Room 204.')
+                : 'Your counseling appointment requested for ' . fmt_dt($cur['scheduled_at']) . ' could not be scheduled. Please choose an alternate date.';
+            create_notification($cur['patient_id'], $title, $msg, 'appointment', $token);
+        }
     }
     header('Location: /counselor/requests.php');
     exit;
@@ -108,12 +136,23 @@ page_start('counselor', 'Appointment Requests', '/counselor/requests.php', 'Pend
                     <p class="empty">No pending appointment requests at this time.</p>
                 <?php else: ?>
                     <div class="request-list">
-                    <?php foreach ($requests as $req): ?>
+                    <?php foreach ($requests as $req): 
+                        $rText = $req['reason'] ?? '';
+                        $isOnline = (stripos($rText, 'online') !== false || stripos($rText, 'google meet') !== false);
+                        $cleanR = preg_replace('/\[(Online Video Call|In-Person Consultation)[^\]]*\]\s*/i', '', $rText);
+                    ?>
                         <div class="request-item">
                             <div>
-                                <strong><?php echo e($req['patient']['full_name'] ?? 'Unknown'); ?></strong>
-                                <small><?php echo e(ucfirst($req['patient']['patient_type'] ?? '-')); ?> · <?php echo e(fmt_dt($req['scheduled_at'], 'F d, Y - g:i A')); ?></small>
-                                <?php if (!empty($req['reason'])): ?><small>Reason: <?php echo e($req['reason']); ?></small><?php endif; ?>
+                                <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
+                                    <strong><?php echo e($req['patient']['full_name'] ?? 'Unknown'); ?></strong>
+                                    <?php if ($isOnline): ?>
+                                        <span class="status pending" style="padding:1px 6px;font-size:10.5px;"><?php echo icon('video'); ?> Google Meet</span>
+                                    <?php else: ?>
+                                        <span class="status active" style="padding:1px 6px;font-size:10.5px;"><?php echo icon('users'); ?> In-Person</span>
+                                    <?php endif; ?>
+                                </div>
+                                <small><?php echo e(ucfirst($req['patient']['patient_type'] ?? 'Student')); ?> &bull; <?php echo e(fmt_dt($req['scheduled_at'], 'F d, Y - g:i A')); ?></small>
+                                <?php if (!empty($cleanR)): ?><small style="display:block;margin-top:2px;">Reason: <?php echo e($cleanR); ?></small><?php endif; ?>
                             </div>
                             <form method="POST" action="/counselor/requests.php" class="request-actions">
                                 <?php echo csrf_field(); ?>

@@ -16,30 +16,42 @@ if (preg_match('#^(css|js)/([A-Za-z0-9._-]+\.(css|js))$#', $path, $m)) {
     exit;
 }
 
-// Home page -> login
-if ($path === '') {
-    require __DIR__ . '/login.php';
+// Home page -> landing page
+if ($path === '' || $path === 'index.php') {
+    require __DIR__ . '/landing.php';
     exit;
 }
 
 // Public pages that live next to this file, in /api
-$apiPages = ['login.php', 'register.php', 'logout.php'];
+$apiPages = ['login.php', 'register.php', 'logout.php', 'landing.php', 'forgot-password.php', 'chat.php', 'apply-counselor.php'];
 if (in_array($path, $apiPages, true)) {
-    require __DIR__ . '/' . $path;
-    exit;
+    $target = __DIR__ . '/' . $path;
+    if (is_file($target)) {
+        require $target;
+        exit;
+    }
 }
 
 // Role areas that live at the project root: /admin, /counselor, /patient
 // e.g. /patient/        -> patient/index.php
-//      /patient/book.php -> patient/book.php
+//      /patient/book.php -> patient/appointment.php
 $parts = explode('/', $path);
 $areas = ['admin', 'counselor', 'patient'];
 
 if (in_array($parts[0], $areas, true)) {
-    $file = (isset($parts[1]) && $parts[1] !== '') ? $parts[1] : 'index.php';
+    $file = (isset($parts[1]) && $parts[1] !== '') ? rawurldecode($parts[1]) : 'index.php';
+
+    // Useful aliases for smooth navigation
+    if ($parts[0] === 'patient' && in_array($file, ['results.php', 'diagnostic.php'], true)) {
+        $file = 'Diagnostic and result.php';
+    } elseif ($parts[0] === 'patient' && in_array($file, ['book.php', 'book-appointment.php'], true)) {
+        $file = 'appointment.php';
+    } elseif (in_array($file, ['print.php', 'slip.php'], true)) {
+        $file = 'print-appointment.php';
+    }
 
     // Whitelist the filename so URLs like /admin/../.env can never be loaded
-    if (preg_match('/^[A-Za-z0-9_-]+\.php$/', $file) && !isset($parts[2])) {
+    if (preg_match('/^[A-Za-z0-9_ -]+\.php$/', $file) && !isset($parts[2])) {
         $target = $root . '/' . $parts[0] . '/' . $file;
         if (is_file($target)) {
             require $target;

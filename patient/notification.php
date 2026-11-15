@@ -6,7 +6,7 @@ require_once __DIR__ . '/../includes/layout.php';
    (kung paano nakukuha ang $uid at $token ng logged-in na patient).
    Halimbawa lang ang nasa baba; palitan kung iba ang function name sa auth.php. */
 $user  = require_role('patient');
-$uid   = $user['id'];
+$uid   = $user['user']['id'] ?? ($user['id'] ?? null);
 $token = $user['token'];
 /* ------------------------------------------------------------------------------ */
 

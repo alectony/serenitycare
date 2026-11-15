@@ -45,7 +45,7 @@ function home_for_role($role) {
 /**
  * Put at the top of every protected page:
  *   $me = require_role('counselor');          // or require_role(['admin','counselor'])
- * Returns ['token' => ..., 'user' => ..., 'profile' => ..., 'role' => ...]
+ * Returns ['token' => ..., 'user' => ..., 'profile' => ..., 'role' => ..., 'id' => ...]
  */
 function require_role($roles) {
     $token = require_login();
@@ -70,5 +70,15 @@ function require_role($roles) {
         header('Location: ' . home_for_role($role));   // send them to their own area
         exit;
     }
-    return ['token' => $token, 'user' => $user, 'profile' => $profile, 'role' => $role];
-}?>
+    $resolvedId = $user['id'] ?? ($profile['id'] ?? null);
+    $GLOBALS['current_user_id'] = $resolvedId;
+    $GLOBALS['current_token']   = $token;
+
+    return [
+        'token'   => $token,
+        'user'    => $user,
+        'profile' => $profile,
+        'role'    => $role,
+        'id'      => $resolvedId,
+    ];
+}

@@ -91,11 +91,30 @@ page_start('counselor', 'My Schedule', '/counselor/schedule.php', 'My Schedule &
             <div class="card">
                 <div class="card-head"><div><h2>All Appointments</h2><p class="card-sub">Every session, newest first</p></div></div>
                 <table class="data-table">
-                    <thead><tr><th>Date / Time</th><th>Patient / Type</th><th>Topic</th><th>Status</th></tr></thead>
+                    <thead><tr><th>Date / Time</th><th>Student</th><th>Format &amp; Topic</th><th>Status</th><th>Actions</th></tr></thead>
                     <tbody>
                     <?php if (!$appointments): ?>
-                        <tr><td colspan="4">No appointments found.</td></tr>
-                    <?php else: foreach ($appointments as $a): $ts = strtotime($a['scheduled_at']); ?>
+                        <tr><td colspan="5">No appointments found.</td></tr>
+                    <?php else: foreach ($appointments as $a): 
+                        $ts = strtotime($a['scheduled_at']);
+                        $rawR = $a['reason'] ?? '-';
+                        $isOnline = false;
+                        $meetUrl = '';
+                        $cleanR = $rawR;
+
+                        if (preg_match('/\[Online Video Call - Google Meet:\s*(https:\/\/meet\.google\.com\/[a-z0-9-]+)\]\s*(.*)/is', $rawR, $m)) {
+                            $isOnline = true;
+                            $meetUrl = trim($m[1]);
+                            $cleanR = trim($m[2]);
+                        } elseif (stripos($rawR, 'google meet') !== false || stripos($rawR, 'online') !== false) {
+                            $isOnline = true;
+                            if (preg_match('/(https:\/\/meet\.google\.com\/[a-z0-9-]+)/i', $rawR, $m)) {
+                                $meetUrl = $m[1];
+                            }
+                        } elseif (preg_match('/\[In-Person Consultation[^\]]*\]\s*(.*)/is', $rawR, $m)) {
+                            $cleanR = trim($m[1]);
+                        }
+                    ?>
                         <tr>
                             <td>
                                 <div class="when">
@@ -103,9 +122,33 @@ page_start('counselor', 'My Schedule', '/counselor/schedule.php', 'My Schedule &
                                     <span><?php echo e(date('g:i A', $ts)); ?></span>
                                 </div>
                             </td>
-                            <td><strong><?php echo e($a['patient']['full_name'] ?? 'Unknown'); ?></strong><br><small><?php echo e(ucfirst($a['patient']['patient_type'] ?? '-')); ?></small></td>
-                            <td><?php echo e($a['reason'] ?? '-'); ?></td>
+                            <td>
+                                <strong><?php echo e($a['patient']['full_name'] ?? 'Student'); ?></strong><br>
+                                <small><?php echo e(ucfirst($a['patient']['patient_type'] ?? 'Student')); ?></small>
+                            </td>
+                            <td>
+                                <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">
+                                    <?php if ($isOnline): ?>
+                                        <span class="status pending" style="padding:1px 6px;font-size:10.5px;"><?php echo icon('video'); ?> Google Meet</span>
+                                    <?php else: ?>
+                                        <span class="status active" style="padding:1px 6px;font-size:10.5px;"><?php echo icon('users'); ?> In-Person</span>
+                                    <?php endif; ?>
+                                </div>
+                                <span style="font-size:12.5px;color:var(--ink-secondary);"><?php echo e($cleanR); ?></span>
+                            </td>
                             <td><?php echo status_badge($a['status']); ?></td>
+                            <td>
+                                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                                    <?php if ($a['status'] === 'confirmed' && $isOnline && !empty($meetUrl)): ?>
+                                        <a href="<?php echo e($meetUrl); ?>" target="_blank" rel="noopener" class="btn-sm btn-success-sm" style="display:inline-flex;align-items:center;gap:4px;" title="Launch Google Meet Call">
+                                            <?php echo icon('video'); ?> Meet
+                                        </a>
+                                    <?php endif; ?>
+                                    <a href="/counselor/print-appointment.php?id=<?php echo e($a['id']); ?>" target="_blank" class="btn-sm" style="display:inline-flex;align-items:center;gap:4px;" title="Print Counselor Intake Slip">
+                                        <?php echo icon('printer'); ?> Intake Sheet
+                                    </a>
+                                </div>
+                            </td>
                         </tr>
                     <?php endforeach; endif; ?>
                     </tbody>

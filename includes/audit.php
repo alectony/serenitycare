@@ -41,6 +41,10 @@ function settings_defaults() {
         'max_daily_sessions'  => '6',
         'auto_share_dx'       => '0',
         'emergency_banner'    => '1',
+        'gmail_smtp_host'     => 'smtp.gmail.com',
+        'gmail_smtp_user'     => '',
+        'gmail_smtp_pass'     => '',
+        'otp_auth_mode'       => 'hybrid', // 'supabase', 'gmail', or 'hybrid'
     ];
 }
 
@@ -58,3 +62,77 @@ function get_settings($token) {
 function settings_days($settings) {
     return array_values(array_filter(array_map('trim', explode(',', (string) ($settings['working_days'] ?? '')))));
 }
+
+/**
+ * Creates an in-app notification for a user.
+ */
+function create_notification($userId, $title, $message, $type = 'system', $token = null) {
+    if (!$userId) return false;
+    $res = sb_request('POST', 'notifications', '', [
+        'user_id'    => $userId,
+        'title'      => mb_substr((string) $title, 0, 150),
+        'message'    => mb_substr((string) $message, 0, 500),
+        'type'       => $type,
+        'is_read'    => false,
+        'created_at' => date('c'),
+    ], $token, 'return=minimal');
+
+    // Also persist in local notifications backup
+    $dir = __DIR__ . '/data';
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0755, true);
+    }
+    $file = $dir . '/notifications.json';
+    $notifs = file_exists($file) ? (json_decode(file_get_contents($file), true) ?: []) : [];
+    $notifs[] = [
+        'id'         => bin2hex(random_bytes(8)),
+        'user_id'    => $userId,
+        'title'      => $title,
+        'message'    => $message,
+        'type'       => $type,
+        'is_read'    => false,
+        'created_at' => date('c'),
+    ];
+    if (count($notifs) > 200) {
+        $notifs = array_slice($notifs, -200);
+    }
+    @file_put_contents($file, json_encode($notifs, JSON_PRETTY_PRINT));
+
+    return ($res['status'] >= 200 && $res['status'] < 300);
+}
+
+/**
+ * Returns count of unread notifications for a user.
+ */
+function get_unread_notification_count($userId, $token) {
+    if (!$userId) return 0;
+    $r = sb_request('GET', 'notifications', 'select=id&user_id=eq.' . urlencode($userId) . '&is_read=eq.false', null, $token);
+    if ($r['status'] === 200 && is_array($r['data'])) {
+        return count($r['data']);
+    }
+    // Check local fallback
+    $file = __DIR__ . '/data/notifications.json';
+    if (file_exists($file)) {
+        $notifs = json_decode(file_get_contents($file), true) ?: [];
+        $count = 0;
+        foreach ($notifs as $n) {
+            if ($n['user_id'] === $userId && empty($n['is_read'])) {
+                $count++;
+            }
+        }
+        return $count;
+    }
+    return 0;
+}
+
+/**
+ * Generate a clean, unique Google Meet link for online appointments.
+ */
+function generate_google_meet_link($seed = '') {
+    $chars = 'abcdefghijklmnopqrstuvwxyz';
+    $p1 = ''; for ($i = 0; $i < 3; $i++) { $p1 .= $chars[random_int(0, 25)]; }
+    $p2 = ''; for ($i = 0; $i < 4; $i++) { $p2 .= $chars[random_int(0, 25)]; }
+    $p3 = ''; for ($i = 0; $i < 3; $i++) { $p3 .= $chars[random_int(0, 25)]; }
+    return 'https://meet.google.com/' . $p1 . '-' . $p2 . '-' . $p3;
+}
+
