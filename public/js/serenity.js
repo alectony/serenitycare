@@ -1,5 +1,5 @@
 /**
- * SerenityCare - UI Enhancements: Theme Controller & Skeleton Loading Engine
+ * SerenityCare - UI Enhancements: Theme Controller, Skeleton Engine & Glass Motion
  */
 (function() {
   'use strict';
@@ -94,18 +94,36 @@
       let banner = document.createElement('div');
       banner.id = 'skeleton-preview-banner';
       banner.className = 'skeleton-preview-banner';
-      banner.innerHTML = '<span>Previewing Neumorphic Skeleton Frames (<span class="skeleton-banner-countdown">3s</span>)...</span>'
+      banner.innerHTML = '<span>Previewing Frosted Glass Skeleton Frames (<span class="skeleton-banner-countdown">3s</span>)...</span>'
         + '<button type="button" class="skeleton-banner-close" onclick="window.SerenitySkeleton.hidePreview()">&times;</button>';
       document.body.appendChild(banner);
       return banner;
     }
   };
 
-  // --- 3. Initial Boot & Event Binding ---
-  // Apply theme immediately
+  // --- 3. Glassmorphic Entrance & Sheen Motion Controller ---
+  function initGlassMotion() {
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      return;
+    }
+
+    const targets = document.querySelectorAll(
+      '.stat-card, .card, .settings-card, .feature-card, .hero-showcase, .cta, .crisis-strip, .result-item'
+    );
+
+    targets.forEach(function(el, index) {
+      // Skip cards inside hidden modals so they keep their own modalFadeIn animation
+      if (el.closest('.modal-overlay')) return;
+
+      el.classList.add('glass-animate-in', 'glass-sheen');
+      // Cap stagger delay at 480ms so lower-page elements never feel sluggish
+      el.style.animationDelay = Math.min(index * 55, 480) + 'ms';
+    });
+  }
+
+  // --- 4. Initial Boot & Event Binding ---
   applyTheme(getCurrentTheme());
 
-  // Listen for system preference changes if user hasn't set explicit manual override
   if (window.matchMedia) {
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
       if (!localStorage.getItem(THEME_KEY)) {
@@ -114,9 +132,9 @@
     });
   }
 
-  // Bind DOM events on load
   document.addEventListener('DOMContentLoaded', function() {
     applyTheme(getCurrentTheme());
+    initGlassMotion();
 
     // Bind theme toggle buttons
     document.addEventListener('click', function(e) {
@@ -140,7 +158,7 @@
       }
     });
 
-    // Tab switching support for settings pages
+    // Tab switching support for settings pages (re-triggers entrance animation on newly shown panes)
     const tabButtons = document.querySelectorAll('.settings-tab-btn');
     if (tabButtons.length > 0) {
       tabButtons.forEach(function(btn) {
@@ -151,7 +169,16 @@
 
           const sections = document.querySelectorAll('.settings-section-pane');
           sections.forEach(function(s) {
-            s.style.display = (s.id === targetId) ? 'block' : 'none';
+            const isTarget = (s.id === targetId);
+            s.style.display = isTarget ? 'block' : 'none';
+            if (isTarget) {
+              s.querySelectorAll('.glass-animate-in').forEach(function(card, idx) {
+                card.style.animation = 'none';
+                void card.offsetHeight; // Force reflow to replay entrance
+                card.style.animation = '';
+                card.style.animationDelay = (idx * 55) + 'ms';
+              });
+            }
           });
         });
       });
