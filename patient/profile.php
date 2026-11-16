@@ -94,6 +94,7 @@ $fields = [
 $rightHeader = $uid ? patient_header($uid, $token) : status_badge($status);
 page_start('patient', 'My Profile', '/patient/profile.php', 'Student Profile', 'Your personal and academic guidance records.', $rightHeader);
 ?>
+<?= patient_search_modal($token) ?>
 <?php if (isset($_GET['saved'])): ?><div class="alert success">Profile saved successfully.</div><?php endif; ?>
 <?php foreach ($errors as $err): ?><div class="alert error"><?= e($err) ?></div><?php endforeach; ?>
 <?php if ($status === 'pending'): ?><div class="search-alert">Waiting for verification by the guidance counseling office.</div><?php endif; ?>

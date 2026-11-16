@@ -43,8 +43,9 @@ if (is_uuid($id)) {
 }
 
 $rightHeader = patient_header($uid, $token);
-page_start('patient', 'Diagnosis & Results', '/patient/Diagnostic and result.php', 'Guidance Diagnoses & Results', 'Official counseling assessments and mental health recommendations shared with you.', $rightHeader);
+page_start('patient', 'Diagnosis & Results', '/patient/results.php', 'Guidance Diagnoses & Results', 'Official counseling assessments and mental health recommendations shared with you.', $rightHeader);
 ?>
+<?= patient_search_modal($token) ?>
 <div class="content-grid">
 
   <section class="card">

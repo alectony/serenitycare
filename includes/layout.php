@@ -119,7 +119,7 @@ function patient_search_modal($token) {
     }
     foreach ($found as $c) {
         $h .= '<div class="patient-popup-item"><div class="patient-popup-info"><strong>' . e($c['full_name']) . '</strong><small>Counselor</small></div>'
-            . '<a class="btn-sm" href="/patient/book.php?counselor_id=' . e($c['id']) . '">Book</a></div>';
+            . '<a class="btn-sm" href="/patient/appointment.php?counselor_id=' . e($c['id']) . '">Book</a></div>';
     }
     return $h . '</div></div></div>';
 }
@@ -225,7 +225,7 @@ function nav_for($role) {
             '/patient/'                   => ['Dashboard', 'dashboard'],
             '/patient/appointment.php'    => ['Appointments', 'calendar'],
             '/patient/chat.php'           => ['Messages', 'message'],
-            '/patient/Diagnostic and result.php' => ['Diagnosis & Results', 'file'],
+            '/patient/results.php'        => ['Diagnosis & Results', 'file'],
             '/patient/notification.php'   => ['Notifications', 'bell'],
             '/patient/profile.php'        => ['My Profile', 'user'],
             '/patient/settings.php'       => ['Settings', 'settings'],

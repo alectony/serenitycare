@@ -100,8 +100,11 @@ $ar = sb_request('GET', 'appointments',
     . '&patient_id=eq.' . urlencode($uid) . '&order=scheduled_at.desc', null, $token);
 $mine = ($ar['status'] === 200 && is_array($ar['data'])) ? $ar['data'] : [];
 
-page_start('patient', 'Appointments', '/patient/appointment.php', 'Book & Manage Appointments');
+$selectedCounselorId = $_POST['counselor_id'] ?? ($_GET['counselor_id'] ?? '');
+$rightHeader = patient_header($uid, $token);
+page_start('patient', 'Appointments', '/patient/appointment.php', 'Book & Manage Appointments', 'Schedule and track your counseling sessions.', $rightHeader);
 ?>
+            <?php echo patient_search_modal($token); ?>
             <div class="card">
                 <div class="card-head"><div><h2>Book an Appointment</h2><p class="card-sub">Your counselor will confirm the request</p></div></div>
                 <?php if ($msg): ?><div class="alert success"><?php echo e($msg); ?></div><?php endif; ?>
@@ -116,28 +119,28 @@ page_start('patient', 'Appointments', '/patient/appointment.php', 'Book & Manage
                         <select id="counselor_id" name="counselor_id" required>
                             <option value="">-- Choose a verified counselor --</option>
                             <?php foreach ($counselors as $c): ?>
-                                <option value="<?php echo e($c['id']); ?>"><?php echo e($c['full_name']); ?></option>
+                                <option value="<?php echo e($c['id']); ?>" <?php echo ($selectedCounselorId === $c['id']) ? 'selected' : ''; ?>><?php echo e($c['full_name']); ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>
 
                     <div class="field">
                         <label for="scheduled_at">Date &amp; time</label>
-                        <input type="datetime-local" id="scheduled_at" name="scheduled_at" required>
+                        <input type="datetime-local" id="scheduled_at" name="scheduled_at" value="<?php echo e($_POST['scheduled_at'] ?? ''); ?>" min="<?php echo date('Y-m-d\TH:i'); ?>" required>
                     </div>
                     <p class="form-hint">Office hours <?php echo e($settings['office_open']); ?>–<?php echo e($settings['office_close']); ?> · <?php echo e(implode(', ', array_map(fn($d) => substr($d, 0, 3), $workDays))); ?> · sessions last <?php echo (int) $sessionMin; ?> minutes</p>
 
                     <div class="field">
                         <label for="session_mode">Session Format / Venue</label>
                         <select id="session_mode" name="session_mode" required>
-                            <option value="in_person">🏢 In-Person Consultation (Guidance Office - Room 204)</option>
-                            <option value="online">🟢 Online Video Call (via Google Meet)</option>
+                            <option value="in_person" <?php echo (($_POST['session_mode'] ?? 'in_person') === 'in_person') ? 'selected' : ''; ?>>🏢 In-Person Consultation (Guidance Office - Room 204)</option>
+                            <option value="online" <?php echo (($_POST['session_mode'] ?? '') === 'online') ? 'selected' : ''; ?>>🟢 Online Video Call (via Google Meet)</option>
                         </select>
                     </div>
 
                     <div class="field">
                         <label for="reason">Reason for visit</label>
-                        <textarea id="reason" name="reason" rows="3" maxlength="500" required placeholder="Describe your topic or questions for your guidance counselor..."></textarea>
+                        <textarea id="reason" name="reason" rows="3" maxlength="500" required placeholder="Describe your topic or questions for your guidance counselor..."><?php echo e($_POST['reason'] ?? ''); ?></textarea>
                     </div>
 
                     <button type="submit" class="btn">Request appointment</button>

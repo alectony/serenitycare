@@ -66,6 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $rightContent = patient_header($uid, $token);
 page_start('patient', 'Settings', '/patient/settings.php', 'My Settings', 'Manage dark mode, appointment reminders, and student privacy controls.', $rightContent);
 ?>
+            <?php echo patient_search_modal($token); ?>
             <?php if ($msg): ?><div class="alert success"><?php echo e($msg); ?></div><?php endif; ?>
             <?php if ($err): ?><div class="alert error"><?php echo e($err); ?></div><?php endif; ?>
 

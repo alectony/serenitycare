@@ -32,8 +32,10 @@ if (is_uuid($id)) {
 // Session date: the appointment time if linked, otherwise the day the summary was written
 function session_date($s) { return $s['appointment']['scheduled_at'] ?? $s['created_at']; }
 
-page_start('patient', 'Session Summaries', '/patient/summaries.php', 'Session summaries', 'Notes your counselor chose to share after your sessions.');
+$rightHeader = patient_header($uid, $token);
+page_start('patient', 'Session Summaries', '/patient/results.php', 'Session summaries', 'Notes your counselor chose to share after your sessions.', $rightHeader);
 ?>
+<?= patient_search_modal($token) ?>
 <div class="content-grid">
 
   <section class="card">
@@ -81,7 +83,7 @@ page_start('patient', 'Session Summaries', '/patient/summaries.php', 'Session su
         <p><?= !empty($open['next_steps']) ? nl2br(e($open['next_steps'])) : 'No next steps were added.' ?></p>
 
         <div class="details-actions">
-          <a class="btn" href="/patient/book.php">Book another session</a>
+          <a class="btn" href="/patient/appointment.php">Book another session</a>
         </div>
       </section>
     <?php elseif ($list): ?>

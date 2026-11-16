@@ -50,12 +50,39 @@ if (in_array($parts[0], $areas, true)) {
     $file = (isset($parts[1]) && $parts[1] !== '') ? rawurldecode($parts[1]) : 'index.php';
 
     // Useful aliases for smooth navigation
-    if ($parts[0] === 'patient' && in_array($file, ['results.php', 'diagnostic.php'], true)) {
-        $file = 'Diagnostic and result.php';
-    } elseif ($parts[0] === 'patient' && in_array($file, ['book.php', 'book-appointment.php'], true)) {
-        $file = 'appointment.php';
-    } elseif (in_array($file, ['print.php', 'slip.php'], true)) {
-        $file = 'print-appointment.php';
+    $norm = strtolower($file);
+    if (substr($norm, -4) !== '.php') {
+        $norm .= '.php';
+    }
+
+    if ($parts[0] === 'patient') {
+        if (in_array($norm, ['results.php', 'diagnostic.php', 'diagnostic and result.php', 'diagnostic%20and%20result.php'], true)) {
+            $file = 'results.php';
+        } elseif (in_array($norm, ['book.php', 'book-appointment.php', 'book appointment.php', 'book%20appointment.php', 'appointment.php', 'appointments.php'], true)) {
+            $file = 'appointment.php';
+        } elseif (in_array($norm, ['dashboard.php', 'home.php'], true)) {
+            $file = 'index.php';
+        } elseif (in_array($norm, ['summaries.php', 'session.php', 'sessions.php'], true)) {
+            $file = 'session.php';
+        } elseif (in_array($norm, ['print.php', 'slip.php', 'print-appointment.php'], true)) {
+            $file = 'print-appointment.php';
+        } elseif (in_array($norm, ['notifications.php', 'notification.php'], true)) {
+            $file = 'notification.php';
+        } elseif (in_array($norm, ['profiles.php', 'profile.php'], true)) {
+            $file = 'profile.php';
+        } elseif (in_array($norm, ['settings.php', 'setting.php'], true)) {
+            $file = 'settings.php';
+        } elseif (in_array($norm, ['chat.php', 'chats.php', 'messages.php', 'message.php'], true)) {
+            $file = 'chat.php';
+        } else {
+            $file = $norm;
+        }
+    } else {
+        if (in_array($norm, ['print.php', 'slip.php'], true)) {
+            $file = 'print-appointment.php';
+        } else {
+            $file = $norm;
+        }
     }
 
     // Whitelist the filename so URLs like /admin/../.env can never be loaded

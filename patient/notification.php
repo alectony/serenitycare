@@ -33,8 +33,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && csrf_valid()) {
 $items  = get_notifications($uid, $token, 50, $filter === 'unread');
 $unread = count(get_notifications($uid, $token, 100, true));
 
-page_start('patient', 'Notifications', '/patient/notification.php', 'Notifications', $unread . ' unread');
+$rightHeader = patient_header($uid, $token);
+page_start('patient', 'Notifications', '/patient/notification.php', 'Notifications', $unread . ' unread', $rightHeader);
 ?>
+<?= patient_search_modal($token) ?>
 <section class="card">
   <div class="card-head">
     <div class="tabs">
