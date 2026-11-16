@@ -10,6 +10,34 @@ function within_office_hours(DateTime $when, array $settings) {
     [$ch, $cm] = array_map('intval', explode(':', $settings['office_close']));
     return $mins >= $oh * 60 + $om && $mins + (int) $settings['session_minutes'] <= $ch * 60 + $cm;
 }
+
+function get_session_slots(array $settings): array {
+    $slots = [];
+    [$oh, $om] = array_map('intval', explode(':', $settings['office_open'] ?? '08:00'));
+    [$ch, $cm] = array_map('intval', explode(':', $settings['office_close'] ?? '17:00'));
+    $sessMin = max(15, (int) ($settings['session_minutes'] ?? 50));
+    $step = ($sessMin <= 50) ? 60 : $sessMin;
+
+    for ($mins = $oh * 60 + $om; $mins + $sessMin <= $ch * 60 + $cm; $mins += $step) {
+        $h = floor($mins / 60);
+        $m = $mins % 60;
+        $val = sprintf('%02d:%02d', $h, $m);
+
+        $endMins = $mins + $sessMin;
+        $endH = floor($endMins / 60);
+        $endMin = $endMins % 60;
+        $endVal = sprintf('%02d:%02d', $endH, $endMin);
+
+        $startFmt = date('g:i A', strtotime("2000-01-01 $val:00"));
+        $endFmt   = date('g:i A', strtotime("2000-01-01 $endVal:00"));
+
+        $slots[] = [
+            'value' => $val,
+            'label' => "$startFmt – $endFmt ({$sessMin} mins)"
+        ];
+    }
+    return $slots;
+}
 $uid = $me['user']['id'];
 $token = $me['token'];
 $msg = '';
@@ -48,7 +76,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $counselorId = $_POST['counselor_id'] ?? '';
         $sessionMode = $_POST['session_mode'] ?? 'in_person';
         $rawReason   = trim($_POST['reason'] ?? '');
-        $when = DateTime::createFromFormat('Y-m-d\TH:i', $_POST['scheduled_at'] ?? '', new DateTimeZone('Asia/Manila'));
+
+        // Support separate date + time slot or unified scheduled_at
+        $postDate     = trim($_POST['appointment_date'] ?? '');
+        $postTime     = trim($_POST['appointment_time'] ?? '');
+        $rawSchedule  = trim($_POST['scheduled_at'] ?? '');
+
+        if (!empty($postDate) && !empty($postTime)) {
+            $rawSchedule = $postDate . 'T' . $postTime;
+        }
+
+        $when = DateTime::createFromFormat('Y-m-d\TH:i', $rawSchedule, new DateTimeZone('Asia/Manila'));
 
         if (!in_array($counselorId, $counselorIds, true)) {
             $err = 'Please choose a counselor.';
@@ -100,6 +138,16 @@ $ar = sb_request('GET', 'appointments',
     . '&patient_id=eq.' . urlencode($uid) . '&order=scheduled_at.desc', null, $token);
 $mine = ($ar['status'] === 200 && is_array($ar['data'])) ? $ar['data'] : [];
 
+$sessionSlots = get_session_slots($settings);
+$selectedDate = $_POST['appointment_date'] ?? '';
+$selectedTime = $_POST['appointment_time'] ?? '';
+$rawSchedule  = $_POST['scheduled_at'] ?? '';
+if (empty($selectedDate) && !empty($rawSchedule)) {
+    $sParts = explode('T', $rawSchedule);
+    $selectedDate = $sParts[0] ?? '';
+    $selectedTime = substr($sParts[1] ?? '', 0, 5);
+}
+
 $selectedCounselorId = $_POST['counselor_id'] ?? ($_GET['counselor_id'] ?? '');
 $rightHeader = patient_header($uid, $token);
 page_start('patient', 'Appointments', '/patient/appointment.php', 'Book & Manage Appointments', 'Schedule and track your counseling sessions.', $rightHeader);
@@ -110,7 +158,7 @@ page_start('patient', 'Appointments', '/patient/appointment.php', 'Book & Manage
                 <?php if ($msg): ?><div class="alert success"><?php echo e($msg); ?></div><?php endif; ?>
                 <?php if ($err): ?><div class="alert error"><?php echo e($err); ?></div><?php endif; ?>
 
-                <form method="POST" action="/patient/appointment.php">
+                <form method="POST" action="/patient/appointment.php" id="appointmentForm">
                     <?php echo csrf_field(); ?>
                     <input type="hidden" name="action" value="book">
 
@@ -124,11 +172,64 @@ page_start('patient', 'Appointments', '/patient/appointment.php', 'Book & Manage
                         </select>
                     </div>
 
-                    <div class="field">
-                        <label for="scheduled_at">Date &amp; time</label>
-                        <input type="datetime-local" id="scheduled_at" name="scheduled_at" value="<?php echo e($_POST['scheduled_at'] ?? ''); ?>" min="<?php echo date('Y-m-d\TH:i'); ?>" required>
+                    <div class="field schedule-group">
+                        <label>Appointment Schedule (Date &amp; Time)</label>
+                        <div class="date-time-picker-grid">
+                            <div class="picker-col">
+                                <label for="appointment_date">
+                                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                                    Preferred Date
+                                </label>
+                                <input type="date" id="appointment_date" name="appointment_date" 
+                                       min="<?php echo date('Y-m-d'); ?>" 
+                                       max="<?php echo date('Y-m-d', strtotime('+' . (int) $settings['booking_window_days'] . ' days')); ?>" 
+                                       value="<?php echo e($selectedDate); ?>" required onchange="handleDateChange()">
+                                
+                                <div id="date-status-msg" class="date-status-msg"></div>
+
+                                <div class="date-quick-chips">
+                                    <span class="date-chip-btn" onclick="setQuickDate('today')">Today</span>
+                                    <span class="date-chip-btn" onclick="setQuickDate('tomorrow')">Tomorrow</span>
+                                    <span class="date-chip-btn" onclick="setQuickDate('next_work')">Next Clinic Day</span>
+                                </div>
+                            </div>
+
+                            <div class="picker-col">
+                                <label for="appointment_time">
+                                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                    Session Time Slot
+                                </label>
+                                <select id="appointment_time" name="appointment_time" required onchange="handleTimeChange()">
+                                    <option value="">-- Choose session time --</option>
+                                    <?php foreach ($sessionSlots as $slot): ?>
+                                        <option value="<?php echo e($slot['value']); ?>" <?php echo ($selectedTime === $slot['value']) ? 'selected' : ''; ?>>
+                                            <?php echo e($slot['label']); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <div style="font-size:12px;color:var(--muted);margin-top:6px;">Sessions last <?php echo (int) $sessionMin; ?> mins per student</div>
+                            </div>
+                        </div>
+
+                        <!-- Hidden sync for legacy/fallback APIs -->
+                        <input type="hidden" id="scheduled_at" name="scheduled_at" value="<?php echo e($rawSchedule); ?>">
+
+                        <!-- Operating Hours Info Banner -->
+                        <div class="schedule-banner-box">
+                            <div class="schedule-banner-item">
+                                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                <span>Office Hours: <strong><?php echo e($settings['office_open']); ?>–<?php echo e($settings['office_close']); ?></strong></span>
+                            </div>
+                            <div class="schedule-banner-item">
+                                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                                <span>Clinic Days: <strong><?php echo e(implode(', ', array_map(fn($d) => substr($d, 0, 3), $workDays))); ?></strong></span>
+                            </div>
+                            <div class="schedule-banner-item">
+                                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                                <span>Booking Window: Up to <strong><?php echo (int) $settings['booking_window_days']; ?> days ahead</strong></span>
+                            </div>
+                        </div>
                     </div>
-                    <p class="form-hint">Office hours <?php echo e($settings['office_open']); ?>–<?php echo e($settings['office_close']); ?> · <?php echo e(implode(', ', array_map(fn($d) => substr($d, 0, 3), $workDays))); ?> · sessions last <?php echo (int) $sessionMin; ?> minutes</p>
 
                     <div class="field">
                         <label for="session_mode">Session Format / Venue</label>
@@ -220,4 +321,83 @@ page_start('patient', 'Appointments', '/patient/appointment.php', 'Book & Manage
                     </tbody>
                 </table>
             </div>
+
+            <script>
+            (function() {
+                const clinicWorkDays = <?php echo json_encode($workDays); ?>;
+
+                window.handleDateChange = function() {
+                    const dInput = document.getElementById('appointment_date');
+                    const msgEl  = document.getElementById('date-status-msg');
+                    const syncEl = document.getElementById('scheduled_at');
+                    const tSelect= document.getElementById('appointment_time');
+                    if (!dInput || !dInput.value) {
+                        if (msgEl) msgEl.innerHTML = '';
+                        return;
+                    }
+
+                    const parts = dInput.value.split('-').map(Number);
+                    const dObj = new Date(parts[0], parts[1] - 1, parts[2]);
+                    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                    const dayName = days[dObj.getDay()];
+
+                    if (msgEl) {
+                        if (clinicWorkDays.includes(dayName)) {
+                            msgEl.className = 'date-status-msg valid';
+                            msgEl.innerHTML = '🟢 ' + dayName + ' — Guidance Office is open';
+                        } else {
+                            msgEl.className = 'date-status-msg invalid';
+                            msgEl.innerHTML = '⚠️ Guidance Office is closed on ' + dayName + 's. Open days: ' + clinicWorkDays.join(', ');
+                        }
+                    }
+
+                    if (syncEl && tSelect && tSelect.value) {
+                        syncEl.value = dInput.value + 'T' + tSelect.value;
+                    }
+                };
+
+                window.handleTimeChange = function() {
+                    const dInput = document.getElementById('appointment_date');
+                    const syncEl = document.getElementById('scheduled_at');
+                    const tSelect= document.getElementById('appointment_time');
+                    if (syncEl && dInput && dInput.value && tSelect && tSelect.value) {
+                        syncEl.value = dInput.value + 'T' + tSelect.value;
+                    }
+                };
+
+                window.setQuickDate = function(type) {
+                    const dInput = document.getElementById('appointment_date');
+                    if (!dInput) return;
+                    const now = new Date();
+                    let target = new Date();
+
+                    if (type === 'today') {
+                        target = now;
+                    } else if (type === 'tomorrow') {
+                        target.setDate(now.getDate() + 1);
+                    } else if (type === 'next_work') {
+                        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                        for (let i = 0; i < 7; i++) {
+                            const check = new Date();
+                            check.setDate(now.getDate() + i);
+                            const dn = days[check.getDay()];
+                            if (clinicWorkDays.includes(dn)) {
+                                target = check;
+                                break;
+                            }
+                        }
+                    }
+
+                    const yyyy = target.getFullYear();
+                    const mm = String(target.getMonth() + 1).padStart(2, '0');
+                    const dd = String(target.getDate()).padStart(2, '0');
+                    dInput.value = `${yyyy}-${mm}-${dd}`;
+                    window.handleDateChange();
+                };
+
+                document.addEventListener('DOMContentLoaded', function() {
+                    if (window.handleDateChange) window.handleDateChange();
+                });
+            })();
+            </script>
 <?php page_end();?>
